@@ -1,3 +1,22 @@
 # Reversa
 .reversa/config.user.toml
 _reversa_sdd/
+
+# Secrets (NFR-13)
+.env
+
+# Runtime output
+logs/
+
+# PDFs are never versioned (D-23)
+*.pdf
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+dist/
+build/
+*.egg-info/
