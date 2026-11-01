@@ -134,6 +134,11 @@ class ToolRegistry:
     def __init__(self, tools: list[Tool]) -> None:
         self._tools = {tool.name: tool for tool in tools}
 
+    @classmethod
+    def default(cls, context: ToolContext) -> ToolRegistry:
+        """The agent's tools, in a fixed order."""
+        return cls(_default_tools(context))
+
     def names(self) -> list[str]:
         return list(self._tools)
 
@@ -583,3 +588,12 @@ class GetStorePolicyTool(Tool):
             "manual_version": MANUAL_VERSION,
             "text": section.text,
         }
+
+
+def _default_tools(context: ToolContext) -> list[Tool]:
+    return [
+        SearchProductsTool(context),
+        GetProductDetailsTool(context),
+        GetOrderStatusTool(context),
+        GetStorePolicyTool(context),
+    ]

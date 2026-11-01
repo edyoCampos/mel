@@ -14,7 +14,12 @@ from emporio.services import STORE_TZ
 from tests.conftest import ROOT
 
 runner = CliRunner()
-DATA_ARGS = ["--data-dir", str(ROOT / "data" / "raw"), "--policies", str(ROOT / "data" / "policies.md")]
+DATA_ARGS = [
+    "--data-dir",
+    str(ROOT / "data" / "raw"),
+    "--policies",
+    str(ROOT / "data" / "policies.md"),
+]
 
 
 class StubAgent:
