@@ -5,10 +5,11 @@ Nothing here reads files, the network or the clock: "now" is always passed in (D
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import date, timedelta
 
-from emporio.models import Order, OrderStatus, Product, Promotion, normalize_text
+from emporio.models import Customer, Order, OrderStatus, Product, Promotion, normalize_text
 from emporio.money import Money
 
 # ---------- Installments (R-03, A-03) ----------
@@ -212,3 +213,51 @@ class DelayAssessor:
         if not_shipped_late:
             return DelayAssessment(True, "not_shipped_after_7_days")
         return DelayAssessment(False, None)
+
+
+# ---------- Identity (R-13, A-16, NFR-03) ----------
+
+
+class VerificationInputError(ValueError):
+    """Neither e-mail nor phone was provided."""
+
+
+def _digits(text: str) -> str:
+    return re.sub(r"\D", "", text)
+
+
+class CustomerVerifier:
+    def verify(self, customer: Customer, email: str | None, phone: str | None) -> bool:
+        """True when the e-mail or phone matches the customer who owns the order.
+
+        Always called with the order's owner: verification is by the pair order + contact,
+        never by contact alone, because two customers share an e-mail (A-16).
+        """
+        if not email and not phone:
+            raise VerificationInputError("An e-mail or a phone number is required")
+        if email and email.strip().lower() == customer.email.strip().lower():
+            return True
+        return bool(phone) and _digits(phone or "") == _digits(customer.phone)
+
+
+def mask_email(email: str) -> str:
+    """'anacarol.ferreira@coldmail.com' -> 'a***@coldmail.com'."""
+    local, _, domain = email.strip().partition("@")
+    if not domain:
+        return "***"
+    return f"{local[:1]}***@{domain}"
+
+
+def mask_phone(phone: str) -> str:
+    """'(67) 99654-7821' -> '(67) *****-7821': keeps the area code and the last 4 digits."""
+    total = len(_digits(phone))
+    seen = 0
+    masked = []
+    for char in phone:
+        if char.isdigit():
+            seen += 1
+            keep = seen <= 2 or seen > total - 4
+            masked.append(char if keep else "*")
+        else:
+            masked.append(char)
+    return "".join(masked)
