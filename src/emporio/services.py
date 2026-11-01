@@ -7,7 +7,10 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import date, datetime, time, timedelta
+from zoneinfo import ZoneInfo
+
+import holidays
 
 from emporio.models import Customer, Order, OrderStatus, Product, Promotion, normalize_text
 from emporio.money import Money
@@ -261,3 +264,103 @@ def mask_phone(phone: str) -> str:
         else:
             masked.append(char)
     return "".join(masked)
+
+
+# ---------- Store hours (R-10, R-15, A-17) ----------
+
+STORE_TZ = ZoneInfo("America/Campo_Grande")  # UTC-04:00 (AS-04)
+
+# weekday -> (opening, closing); Sunday is closed (policy 2)
+_SCHEDULE: dict[int, tuple[time, time]] = {
+    0: (time(9), time(18)),
+    1: (time(9), time(18)),
+    2: (time(9), time(18)),
+    3: (time(9), time(18)),
+    4: (time(9), time(18)),
+    5: (time(9), time(13)),
+}
+_WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+
+
+@dataclass(frozen=True)
+class StoreStatus:
+    is_open: bool
+    now_local: datetime
+    closes_at: datetime | None  # when open
+    next_opening: datetime | None  # when closed
+    closed_reason: str | None  # "sunday" | "holiday:<name>" | "outside_hours"
+
+
+class StoreHours:
+    """Mon-Fri 09:00-18:00, Sat 09:00-13:00, closed on Sundays and national holidays."""
+
+    def __init__(self) -> None:
+        self._holidays = holidays.country_holidays("BR")
+
+    def _to_local(self, now: datetime) -> datetime:
+        if now.tzinfo is None or now.utcoffset() is None:
+            raise ValueError("now must be timezone-aware")
+        return now.astimezone(STORE_TZ)
+
+    def holiday_name(self, day: date) -> str | None:
+        return self._holidays.get(day)
+
+    def _hours_for(self, day: date) -> tuple[time, time] | None:
+        if self.holiday_name(day) is not None:
+            return None
+        return _SCHEDULE.get(day.weekday())
+
+    def status(self, now: datetime) -> StoreStatus:
+        local = self._to_local(now)
+        today = local.date()
+        hours = self._hours_for(today)
+        if hours is not None:
+            opening, closing = hours
+            if opening <= local.time() < closing:
+                closes_at = datetime.combine(today, closing, tzinfo=STORE_TZ)
+                return StoreStatus(True, local, closes_at, None, None)
+        holiday = self.holiday_name(today)
+        if holiday is not None:
+            reason = f"holiday:{holiday}"
+        elif today.weekday() == 6:
+            reason = "sunday"
+        else:
+            reason = "outside_hours"
+        return StoreStatus(False, local, None, self.next_opening(local), reason)
+
+    def next_opening(self, now: datetime) -> datetime:
+        """First opening time strictly after `now`."""
+        local = self._to_local(now)
+        day = local.date()
+        for _ in range(30):
+            hours = self._hours_for(day)
+            if hours is not None:
+                opening = datetime.combine(day, hours[0], tzinfo=STORE_TZ)
+                if opening > local:
+                    return opening
+            day += timedelta(days=1)
+        raise RuntimeError("No opening found in the next 30 days")
+
+    def describe(self, now: datetime) -> str:
+        """One English line for the system prompt (D-18)."""
+        status = self.status(now)
+        local = status.now_local
+        head = f"{_WEEKDAYS[local.weekday()]}, {local:%d/%m/%Y %H:%M} (America/Campo_Grande)."
+        if status.is_open and status.closes_at is not None:
+            return f"{head} Store is OPEN until {status.closes_at:%H:%M}."
+        assert status.next_opening is not None
+        opening = status.next_opening
+        line = (
+            f"{head} Store is CLOSED. Next opening: "
+            f"{_WEEKDAYS[opening.weekday()]}, {opening:%d/%m/%Y} at {opening:%H:%M}"
+        )
+        skipped = []
+        day = local.date() + timedelta(days=1)
+        while day < opening.date():
+            name = self.holiday_name(day)
+            if name is not None:
+                skipped.append(f"{_WEEKDAYS[day.weekday()]} {day:%d/%m} is {name}")
+            day += timedelta(days=1)
+        if skipped:
+            line += f" ({'; '.join(skipped)})"
+        return line + "."
