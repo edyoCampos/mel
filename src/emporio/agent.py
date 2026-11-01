@@ -11,6 +11,7 @@ import time
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from importlib.resources import files
 from typing import Any, Protocol
 
 from emporio.llm import LLMClient, LLMError, Message
@@ -27,6 +28,12 @@ FALLBACK_LIMIT = (
     "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
 )
 EMPTY_MESSAGE_REPLY = "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?"
+
+
+def load_system_prompt_template() -> str:
+    """The Mel's system prompt (prompts/system.md), with {now_local}, {weekday}, {store_status}."""
+    return files("emporio").joinpath("prompts/system.md").read_text(encoding="utf-8")
+
 
 _WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
 _SUMMARY_LIMIT = 160
