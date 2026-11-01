@@ -1,6 +1,7 @@
 """Tool base and ToolRegistry: schemas and dispatch errors (D-03)."""
 
 import json
+from enum import StrEnum
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -112,3 +113,30 @@ def test_result_to_json() -> None:
     result = registry.dispatch("echo", {"text": "R$ 2.199,00"})
     assert json.loads(result.to_json()) == {"echo": "R$ 2.199,00"}
     assert "R$ 2.199,00" in result.to_json()  # no ASCII escaping
+
+
+class Color(StrEnum):
+    RED = "red"
+    BLUE = "blue"
+
+
+class PaintArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    color: Color = Field(description="Paint color.")
+
+
+class PaintTool(EchoTool):
+    name = "paint"
+    args_model = PaintArgs  # type: ignore[assignment]
+
+
+def test_schemas_inline_enum_references() -> None:
+    params = ToolRegistry([PaintTool(None)]).schemas()[0]["function"]["parameters"]  # type: ignore[arg-type]
+    text = json.dumps(params)
+    assert "$ref" not in text and "$defs" not in text
+    assert params["properties"]["color"] == {
+        "enum": ["red", "blue"],
+        "type": "string",
+        "description": "Paint color.",
+    }
