@@ -12,13 +12,16 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
+from decimal import Decimal
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
+from emporio.models import Product
 from emporio.policies import PolicyBook
-from emporio.store_data import StoreData
+from emporio.services import PricingService
+from emporio.store_data import ProductFilter, StoreData
 
 logger = logging.getLogger(__name__)
 
@@ -139,3 +142,122 @@ class ToolRegistry:
         except Exception:
             logger.exception("Tool %s failed", name)
             return _error("internal_error", "The tool failed unexpectedly. Offer human help.")
+
+
+# ---------- shared product formatting ----------
+
+_pricing = PricingService()
+
+
+def _category_name(data: StoreData, product: Product) -> str:
+    category = data.get_category(product.category_id)
+    return category.name if category else ""
+
+
+def product_summary(data: StoreData, product: Product) -> dict[str, Any]:
+    quote = _pricing.quote(product, data.promotions_for(product.id))
+    promotion = None
+    if quote.active_promotion is not None and quote.promotional_price is not None:
+        promotion = {
+            "discount_percent": quote.active_promotion.discount_percent,
+            "promotional_price": str(quote.promotional_price),
+            "description": quote.active_promotion.description,
+        }
+    return {
+        "id": product.id,
+        "name": product.name,
+        "category": _category_name(data, product),
+        "availability": product.availability.value,
+        "price": str(quote.list_price),
+        "current_price": str(quote.effective_price),
+        "promotion": promotion,
+        "pix_price": str(quote.pix_price) if quote.pix_price is not None else None,
+        "best_installments": quote.best_installments.describe_pt(),
+    }
+
+
+# ---------- search_products (FR-02, FR-16) ----------
+
+SEARCH_LIMIT = 15  # AS-06: FR-02 must list the 12 violoes up to R$ 1.000
+
+
+class SearchProductsArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category: str | None = Field(
+        default=None,
+        description="Category as the customer said it, e.g. 'violões', 'ukulele', 'guitarra'.",
+    )
+    min_price: float | None = Field(
+        default=None, ge=0, description="BRL, compared with the current price."
+    )
+    max_price: float | None = Field(
+        default=None, ge=0, description="BRL, compared with the current price."
+    )
+    text: str | None = Field(
+        default=None, description="Words to match in name or description, e.g. 'Yamaha'."
+    )
+    string_material: Literal["nylon", "steel"] | None = Field(
+        default=None, description="Acoustic guitars and ukuleles only."
+    )
+    electric: bool | None = Field(default=None, description="Has a pickup / electronics.")
+    on_sale_only: bool = Field(default=False, description="Only items with an active promotion.")
+    include_unavailable: bool = Field(
+        default=False,
+        description="Also list out-of-stock, discontinued and coming-soon items, marked as such.",
+    )
+
+
+def _decimal(value: float | None) -> Decimal | None:
+    return None if value is None else Decimal(str(value))
+
+
+class SearchProductsTool(Tool):
+    name = "search_products"
+    description = (
+        "Search the store catalog. Use it for questions about which instruments are "
+        "available, in a category or price range. Never state prices or availability "
+        "without calling a tool."
+    )
+    args_model = SearchProductsArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        assert isinstance(args, SearchProductsArgs)
+        data = self.context.data
+        category = None
+        if args.category:
+            category = data.find_category(args.category)
+            if category is None:
+                known = ", ".join(c.name for c in data.categories())
+                return {
+                    "category": None,
+                    "total_matches": 0,
+                    "returned": 0,
+                    "products": [],
+                    "note": f"Unknown category. Known categories: {known}.",
+                }
+        matches = data.search_products(
+            ProductFilter(
+                category_id=category.id if category else None,
+                min_price=_decimal(args.min_price),
+                max_price=_decimal(args.max_price),
+                text=args.text,
+                string_material=args.string_material,
+                electric=args.electric,
+                on_sale_only=args.on_sale_only,
+                include_unavailable=args.include_unavailable,
+            )
+        )
+        note = None
+        if not matches and category is not None and not data.products_in_category(category.id):
+            note = "No products registered in this category."
+        elif len(matches) > SEARCH_LIMIT:
+            note = f"Showing the {SEARCH_LIMIT} cheapest of {len(matches)} matches."
+        shown = matches[:SEARCH_LIMIT]
+        return {
+            "category": category.name if category else None,
+            "total_matches": len(matches),
+            "returned": len(shown),
+            "products": [product_summary(data, p) for p in shown],
+            "note": note,
+        }
