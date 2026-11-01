@@ -168,6 +168,8 @@ def test_env_example_lists_both_providers() -> None:
     text = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
     active = [line for line in text.splitlines() if line and not line.startswith("#")]
     assert [line.split("=")[0] for line in active] == ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]
-    assert "gemini-3.8-flash" in text
-    assert "# LLM_MODEL=openai/gpt-oss-120b" in text
-    assert "# LLM_BASE_URL=https://api.groq.com/openai/v1" in text
+    # D-09 fallback (AS-60): Groq is the active default, Gemini the commented alternative
+    assert "LLM_MODEL=openai/gpt-oss-120b" in active
+    assert "LLM_BASE_URL=https://api.groq.com/openai/v1" in active
+    assert "# LLM_MODEL=gemini-3.8-flash" in text
+    assert "# LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/" in text
