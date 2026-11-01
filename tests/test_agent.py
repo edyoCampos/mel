@@ -42,7 +42,9 @@ class PingTool(Tool):
 
 @pytest.fixture
 def build(make_context: Callable[..., ToolContext]) -> Callable[..., tuple[Agent, Recorder]]:
-    def make(llm: FakeLLM, clock: Callable[[], datetime] = lambda: SUNDAY) -> tuple[Agent, Recorder]:
+    def make(
+        llm: FakeLLM, clock: Callable[[], datetime] = lambda: SUNDAY
+    ) -> tuple[Agent, Recorder]:
         context = make_context()
         registry = ToolRegistry(
             [GetProductDetailsTool(context), GetOrderStatusTool(context), PingTool(context)]
