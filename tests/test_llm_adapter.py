@@ -80,6 +80,25 @@ def test_message_conversion_to_openai_format() -> None:
     assert response.usage["total_tokens"] == 15
 
 
+def test_tool_call_extra_content_round_trips() -> None:
+    """Gemini 3 returns a thought_signature in extra_content and rejects (HTTP 400) a
+    follow-up request whose assistant tool_calls lack it (AS-60)."""
+    extra = {"google": {"thought_signature": "sig-abc"}}
+    raw = completion(calls=[("c1", "get_store_hours", "{}")])
+    raw.choices[0].message.tool_calls[0].extra_content = extra
+    client, stub, _ = make_client([raw, completion("aberta")])
+    first = client.complete([Message(role="user", content="oi")])
+    assert first.tool_calls[0].extra == extra
+    history = [
+        Message(role="user", content="oi"),
+        Message(role="assistant", content=None, tool_calls=first.tool_calls),
+        Message(role="tool", content="ok", tool_call_id="c1"),
+    ]
+    client.complete(history)
+    sent_call = stub.calls[1]["messages"][1]["tool_calls"][0]
+    assert sent_call["extra_content"] == extra
+
+
 def test_no_tools_argument_when_none() -> None:
     client, stub, _ = make_client([completion()])
     client.complete([Message(role="user", content="oi")])
