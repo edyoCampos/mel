@@ -114,4 +114,3 @@ def test_export_writes_header_and_transcript(run: Any, tmp_path: Path) -> None:
     assert "quanto custa o takamine gd 20?" in content
     assert "R$ 2.199,00" in content
     assert "get_product_details" in content
-
