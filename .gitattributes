@@ -1,0 +1,2 @@
+# Keep the store data byte-identical to the files provided for the challenge (D-23)
+data/raw/*.csv -text
