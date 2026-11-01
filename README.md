@@ -16,7 +16,7 @@ and reaches the model already formatted, e.g. `R$ 2.199,00`.
 ## Quick start
 
 Requirements: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you) and a free
-API key from **Google Gemini** (default) or **Groq** (alternative).
+API key from **Groq** (default) or **Google Gemini** (alternative).
 
 ```bash
 git clone https://github.com/edyoCampos/mel.git
@@ -40,11 +40,11 @@ make scenarios                                             # conversation scenar
 Both providers are free and expose an OpenAI-compatible API, so switching is only a matter of
 environment variables in `.env`:
 
-| | Default: Google Gemini | Alternative: Groq |
+| | Default: Groq | Alternative: Google Gemini |
 | --- | --- | --- |
-| `LLM_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta/openai/` | `https://api.groq.com/openai/v1` |
-| `LLM_MODEL` | `gemini-3.8-flash` | `openai/gpt-oss-120b` |
-| `LLM_API_KEY` | key from Google AI Studio | key from the Groq console |
+| `LLM_BASE_URL` | `https://api.groq.com/openai/v1` | `https://generativelanguage.googleapis.com/v1beta/openai/` |
+| `LLM_MODEL` | `openai/gpt-oss-120b` | `gemini-3.8-flash` |
+| `LLM_API_KEY` | key from the Groq console | key from Google AI Studio |
 
 `.env.example` has both blocks; comment one and uncomment the other.
 
@@ -53,7 +53,7 @@ environment variables in `.env`:
 ## How it works
 
 ```text
-CLI ──► Agent ──► LLM (Gemini / Groq, OpenAI-compatible)
+CLI ──► Agent ──► LLM (Groq / Gemini, OpenAI-compatible)
           │
           └──► ToolRegistry ──► 5 tools ──► StoreData (CSV) · PolicyBook (manual) · services (rules)
 ```
@@ -105,10 +105,12 @@ drives it offline) and to explain line by line. Tools are typed (Pydantic) inste
 text-to-SQL, so the model can never query the customers table freely. If the flow grew into
 states and approvals, I would move to LangGraph.
 
-**2. Model and provider — Gemini by default, Groq as alternative.** Both are free, so the
+**2. Model and provider — Groq by default, Gemini as alternative.** Both are free, so the
 evaluator can run the project without cost, and both speak the OpenAI chat-completions format,
 so one adapter serves both (and local servers too). The adapter retries HTTP 429 up to 3 times
-with growing waits, because free tiers rate-limit. Temperature is 0.
+with growing waits, because free tiers rate-limit. Temperature is 0. Gemini was the first
+choice, but on 01/11/2026 its free tier took over 2 minutes per call ("high demand"), so the
+fallback rule moved the default to Groq.
 
 **3. Retrieval — structured retrieval by topic, not a vector store.** The manual has 8 pages
 and 10 sections, so each policy topic maps to fixed sections; embeddings would only add

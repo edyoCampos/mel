@@ -1,7 +1,7 @@
 """Provider-independent chat model interface (D-09, NFR-05, NFR-06).
 
 The agent depends only on the LLMClient protocol. The OpenAI-compatible adapter talks
-to Google Gemini (default) or Groq (alternative); switching is only environment variables.
+to Groq (default) or Google Gemini (alternative); switching is only environment variables.
 """
 
 from __future__ import annotations
@@ -111,7 +111,7 @@ def _retry_after(error: openai.APIStatusError) -> float | None:
 
 
 class OpenAICompatibleClient:
-    """LLMClient for OpenAI-compatible endpoints (Gemini by default, Groq as alternative)."""
+    """LLMClient for OpenAI-compatible endpoints (Groq by default, Gemini as alternative)."""
 
     def __init__(self, settings: LLMSettings, sleep: Callable[[float], None] = time.sleep) -> None:
         self._settings = settings
