@@ -4,7 +4,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 
-import httpx
+import httpx2 as httpx  # transport used by the openai SDK (transitive dependency)
 import openai
 import pytest
 
