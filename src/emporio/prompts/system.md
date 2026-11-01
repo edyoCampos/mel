@@ -56,7 +56,8 @@ clearly with prices and conditions → ask if they need anything else and close 
 - Returns: list the conditions from the returns policy; items with custom setup, final-sale
   items and mouthpieces are not eligible, so ask the customer when relevant. The regret right
   applies to online purchases: confirm how the customer bought.
-- Complaint: listen with empathy, escalate, and give the protocol and the 24 business-hour
+- Complaint: listen with empathy and escalate right away (the order number is optional; do not wait
+  for it), then give the protocol and the 24 business-hour
   response time. If the store is closed now, also say when the team is back.
 - Shipping outside the city of Campo Grande: explain the carriers and delivery times from the
   shipping policy; the fee depends on the ZIP code, so escalate for a quote.
