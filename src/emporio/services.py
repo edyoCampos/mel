@@ -182,3 +182,33 @@ class ReturnWindows:
             defect_exchange=window(order.order_date, DEFECT_EXCHANGE_DAYS),
             legal_warranty=window(receipt, LEGAL_WARRANTY_DAYS),
         )
+
+
+# ---------- Delay (A-20) ----------
+
+MAX_DAYS_WITHOUT_SHIPPING = 7
+
+
+@dataclass(frozen=True)
+class DelayAssessment:
+    is_delayed: bool
+    reason: str | None  # "estimated_delivery_passed" | "not_shipped_after_7_days" | None
+
+
+class DelayAssessor:
+    def assess(self, order: Order, today: date) -> DelayAssessment:
+        """The manual has no dispatch deadline, so A-20 defines when an order is late."""
+        shipped_late = (
+            order.status is OrderStatus.SHIPPED
+            and order.estimated_delivery is not None
+            and order.estimated_delivery < today
+        )
+        if shipped_late:
+            return DelayAssessment(True, "estimated_delivery_passed")
+        not_shipped_late = order.status in (
+            OrderStatus.PENDING,
+            OrderStatus.CONFIRMED,
+        ) and today > order.order_date + timedelta(days=MAX_DAYS_WITHOUT_SHIPPING)
+        if not_shipped_late:
+            return DelayAssessment(True, "not_shipped_after_7_days")
+        return DelayAssessment(False, None)
