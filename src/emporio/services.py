@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from emporio.models import Product, Promotion
 from emporio.money import Money
 
 # ---------- Installments (R-03, A-03) ----------
@@ -61,3 +62,49 @@ class InstallmentCalculator:
 
     def best_plan(self, price: Money) -> InstallmentPlan:
         return self.plan(price, self.max_installments(price))
+
+
+# ---------- Pricing (R-01, R-02, R-04, A-13) ----------
+
+PIX_DISCOUNT_PERCENT = 5
+COMBINED_PAYMENT_THRESHOLD = Money("2000")
+
+
+@dataclass(frozen=True)
+class PriceQuote:
+    list_price: Money
+    active_promotion: Promotion | None
+    promotional_price: Money | None  # None without an active promotion
+    effective_price: Money  # promotional price if any, else list price
+    pix_price: Money | None  # list price minus 5%; None when a promotion is active (R-02)
+    best_installments: InstallmentPlan
+
+
+class PricingService:
+    def __init__(self, installments: InstallmentCalculator | None = None) -> None:
+        self._installments = installments or InstallmentCalculator()
+
+    def quote(self, product: Product, promotions: list[Promotion]) -> PriceQuote:
+        active = [p for p in promotions if p.is_active and p.product_id == product.id]
+        promotion = max(active, key=lambda p: p.discount_percent, default=None)
+        list_price = product.price
+        if promotion is not None:
+            promotional_price = list_price.apply_discount(promotion.discount_percent)
+            effective_price = promotional_price
+            pix_price = None  # promotions do not stack with PIX (policy 6.2)
+        else:
+            promotional_price = None
+            effective_price = list_price
+            pix_price = list_price.apply_discount(PIX_DISCOUNT_PERCENT)
+        return PriceQuote(
+            list_price=list_price,
+            active_promotion=promotion,
+            promotional_price=promotional_price,
+            effective_price=effective_price,
+            pix_price=pix_price,
+            best_installments=self._installments.best_plan(effective_price),
+        )
+
+    def can_combine_payment_methods(self, total: Money) -> bool:
+        """Combining payment methods is allowed only above R$ 2.000,00 (policy 3.1)."""
+        return total > COMBINED_PAYMENT_THRESHOLD

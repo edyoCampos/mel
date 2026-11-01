@@ -22,7 +22,9 @@ def make_product(**overrides: Any) -> Product:
     return Product.model_validate(fields)
 
 
-def make_promotion(product: Product, discount_percent: int, is_active: bool, **kw: Any) -> Promotion:
+def make_promotion(
+    product: Product, discount_percent: int, is_active: bool, **kw: Any
+) -> Promotion:
     fields: dict[str, Any] = {
         "id": kw.pop("id", 1),
         "product_id": product.id,
