@@ -19,7 +19,7 @@ from typing import Any, ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from emporio.models import Product
-from emporio.policies import PolicyBook
+from emporio.policies import MANUAL_VERSION, PolicyBook, PolicyTopic
 from emporio.services import (
     STORE_TZ,
     CustomerVerifier,
@@ -534,4 +534,34 @@ class GetOrderStatusTool(Tool):
             "delay": {"is_delayed": delay.is_delayed, "reason": delay.reason},
             "return_windows": return_windows,
             "notes": notes,
+        }
+
+
+# ---------- get_store_policy (FR-07, FR-08, FR-10) ----------
+
+
+class GetStorePolicyArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    topic: PolicyTopic = Field(description="Policy topic to read.")
+
+
+class GetStorePolicyTool(Tool):
+    name = "get_store_policy"
+    description = (
+        "Read the store's official policy for one topic: hours, payment, returns, shipping, "
+        "promotions, warranty, privacy, contact (address, phone, e-mail) or scope (what the "
+        "store sells and service rules). Use it for any question about rules, conditions or "
+        "store information; answer only from the returned text."
+    )
+    args_model = GetStorePolicyArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        assert isinstance(args, GetStorePolicyArgs)
+        section = self.context.policies.get(args.topic)
+        return {
+            "topic": section.topic.value,
+            "manual_sections": list(section.sections),
+            "manual_version": MANUAL_VERSION,
+            "text": section.text,
         }
