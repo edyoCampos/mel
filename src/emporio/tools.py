@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -27,7 +28,10 @@ from emporio.services import (
     PricingService,
     ReturnWindows,
     ShippingRules,
+    StoreHours,
     Window,
+    mask_email,
+    mask_phone,
 )
 from emporio.store_data import ProductFilter, StoreData
 
@@ -590,10 +594,120 @@ class GetStorePolicyTool(Tool):
         }
 
 
+# ---------- escalate_to_human (FR-13, FR-17, R-15, R-16) ----------
+
+STORE_CONTACTS = {
+    "phone_whatsapp": "(67) 3341-4444",  # A-01
+    "email": "contato@emporiodamusica.com.br",  # A-02
+    "address": "Rua 14 de Maio, 3200 — Centro, Campo Grande/MS, CEP 79202-333",
+}
+RESPONSE_TIME = "até 24 horas úteis"  # policy 7.3
+_WEEKDAYS_PT = [
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+    "domingo",
+]
+_EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
+_PHONE = re.compile(r"\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}")
+_hours = StoreHours()
+
+
+def mask_contacts(text: str) -> str:
+    """Mask any e-mail or phone the model put in a summary (NFR-03)."""
+    text = _EMAIL.sub(lambda m: mask_email(m.group(0)), text)
+    return _PHONE.sub(lambda m: mask_phone(m.group(0)), text)
+
+
+class EscalateArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: Literal[
+        "complaint",
+        "delayed_order",
+        "special_freight_quote",
+        "data_privacy_request",
+        "product_not_in_catalog",
+        "unanswered_question",
+        "other",
+    ] = Field(description="Why the case goes to a human.")
+    summary: str = Field(
+        min_length=5,
+        max_length=500,
+        description="One or two sentences for the attendant, without e-mails or phone numbers.",
+    )
+    order_id: int | None = Field(default=None, ge=1, description="Related order, if any.")
+
+
+class EscalateToHumanTool(Tool):
+    name = "escalate_to_human"
+    description = (
+        "Hand the case to a human attendant. Use for complaints, delayed orders, special "
+        "freight quotes, data-privacy requests, items the store has no data for, or whenever "
+        "you cannot answer safely from the tools. Tell the customer the protocol number, the "
+        "response time and the contacts."
+    )
+    args_model = EscalateArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        assert isinstance(args, EscalateArgs)
+        now = self.context.now().astimezone(STORE_TZ)
+        protocol = self._next_protocol(now)
+        self._append_log(
+            {
+                "protocol": protocol,
+                "created_at": now.isoformat(timespec="seconds"),
+                "reason": args.reason,
+                "summary": mask_contacts(args.summary),
+                "order_id": args.order_id,
+            }
+        )
+        status = _hours.status(now)
+        next_opening = None
+        note = None
+        if not status.is_open and status.next_opening is not None:
+            opening = status.next_opening
+            next_opening = (
+                f"{_WEEKDAYS_PT[opening.weekday()]}, {opening:%d/%m/%Y}, às {opening:%H:%M}"
+            )
+            note = (
+                "Store is closed now: tell the customer the team replies from the next "
+                "opening (R-15)."
+            )
+        return {
+            "protocol": protocol,
+            "response_time": RESPONSE_TIME,
+            "store_open_now": status.is_open,
+            "next_opening": next_opening,
+            "contacts": STORE_CONTACTS,
+            "note": note,
+        }
+
+    def _next_protocol(self, now: datetime) -> str:
+        prefix = f"EM-{now:%Y%m%d}-"
+        count = 0
+        path = self.context.escalation_log
+        if path.is_file():
+            for line in path.read_text(encoding="utf-8").splitlines():
+                if line.strip() and json.loads(line).get("protocol", "").startswith(prefix):
+                    count += 1
+        return f"{prefix}{count + 1:04d}"
+
+    def _append_log(self, entry: dict[str, Any]) -> None:
+        path = self.context.escalation_log
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+
+
 def _default_tools(context: ToolContext) -> list[Tool]:
     return [
         SearchProductsTool(context),
         GetProductDetailsTool(context),
         GetOrderStatusTool(context),
         GetStorePolicyTool(context),
+        EscalateToHumanTool(context),
     ]
