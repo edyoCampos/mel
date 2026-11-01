@@ -87,6 +87,24 @@ def _clean_schema(node: Any) -> Any:
     return cleaned
 
 
+def _inline_refs(schema: dict[str, Any]) -> dict[str, Any]:
+    """Replace '$ref' with the referenced '$defs' entry; some providers reject references."""
+    definitions = schema.get("$defs", {})
+
+    def resolve(node: Any) -> Any:
+        if isinstance(node, list):
+            return [resolve(item) for item in node]
+        if not isinstance(node, dict):
+            return node
+        if "$ref" in node:
+            target = definitions[node["$ref"].rsplit("/", 1)[-1]]
+            extra = {k: v for k, v in node.items() if k != "$ref"}
+            return resolve({**target, **extra})
+        return {k: resolve(v) for k, v in node.items() if k != "$defs"}
+
+    return resolve(schema)
+
+
 class Tool(ABC):
     name: ClassVar[str]
     description: ClassVar[str]  # tells the model WHEN to use the tool
@@ -100,7 +118,7 @@ class Tool(ABC):
 
     @classmethod
     def schema(cls) -> dict[str, Any]:
-        parameters = _clean_schema(cls.args_model.model_json_schema())
+        parameters = _clean_schema(_inline_refs(cls.args_model.model_json_schema()))
         parameters.setdefault("additionalProperties", False)
         return {
             "type": "function",
