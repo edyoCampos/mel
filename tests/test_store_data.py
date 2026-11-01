@@ -163,13 +163,15 @@ def test_search_text_and_material(data: StoreData) -> None:
     results = data.search_products(flt)
     assert results
     assert all(p.string_material == "nylon" for p in results)
-    assert data.search_products(ProductFilter(text="pearl"))[0].id == 140
+    # Data finding: product 139 is named "Yamaha" but its description says "Pearl Export"
+    assert {p.id for p in data.search_products(ProductFilter(text="pearl"))} == {139, 140}
 
 
 def test_search_electric(data: StoreData) -> None:
     results = data.search_products(ProductFilter(category_id=5, electric=True))
-    assert results
-    assert all("eletric" in p.name.lower().replace("é", "e") for p in results)
+    assert 94 in [p.id for p in results]  # Taylor 110e: electronics "yes", no "Elétrico" in name
+    assert all(p.specs.get("electronics") == "yes" for p in results)
+    assert 81 not in [p.id for p in results]  # Yamaha C40 is acoustic
 
 
 def test_match_product_name_with_typo_and_space(data: StoreData) -> None:
