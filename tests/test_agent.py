@@ -69,6 +69,15 @@ def test_reply_without_tools_returns_text(build: Any) -> None:
     assert [m.role for m in agent.history] == ["user", "assistant"]
 
 
+def test_reply_uses_plain_hyphens(build: Any) -> None:
+    """Some models write U+2010/U+2011 hyphens; the customer must be able to copy
+    "79202-333" or "AC-39" as typed in the data (AS-73)."""
+    llm = FakeLLM([text("CEP 79202\u2011333, Tagima AC\u201039")])
+    agent, _ = build(llm)
+    assert agent.reply("oi") == "CEP 79202-333, Tagima AC-39"
+    assert agent.history[-1].content == "CEP 79202-333, Tagima AC-39"
+
+
 def test_system_prompt_has_time_and_store_status(build: Any) -> None:
     llm = FakeLLM([text("ok")])
     agent, _ = build(llm)
