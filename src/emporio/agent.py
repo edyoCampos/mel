@@ -7,6 +7,7 @@ answer, while every amount comes from tool results already formatted (D-01, D-04
 from __future__ import annotations
 
 import json
+import re
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
@@ -55,6 +56,10 @@ class Tracer(Protocol):
 # U+2010 HYPHEN and U+2011 NON-BREAKING HYPHEN, written by some models in codes such as
 # "79202-333" or "AC-39"; replies keep the data's ASCII hyphen (AS-73).
 _PLAIN_HYPHENS = str.maketrans({"\u2010": "-", "\u2011": "-"})
+# U+00A0 and U+202F (no-break spaces) become plain spaces, and "12 %" becomes "12%", so
+# "R$ 429,90" reads as the tools wrote it (AS-74).
+_PLAIN_SPACES = str.maketrans({"\u00a0": " ", "\u202f": " "})
+_SPACED_PERCENT = re.compile(r"(\d) %")
 
 
 def _masked_arguments(raw: str) -> dict[str, Any] | None:
@@ -157,6 +162,8 @@ class Agent:
                 )
 
     def _finish(self, content: str) -> str:
-        content = content.translate(_PLAIN_HYPHENS)
+        content = _SPACED_PERCENT.sub(
+            r"\1%", content.translate(_PLAIN_HYPHENS).translate(_PLAIN_SPACES)
+        )
         self._history.append(Message(role="assistant", content=content))
         return content
