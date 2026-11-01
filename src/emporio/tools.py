@@ -11,7 +11,7 @@ import logging
 from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, ClassVar, Literal
@@ -20,7 +20,15 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 
 from emporio.models import Product
 from emporio.policies import PolicyBook
-from emporio.services import PricingService, ShippingRules
+from emporio.services import (
+    STORE_TZ,
+    CustomerVerifier,
+    DelayAssessor,
+    PricingService,
+    ReturnWindows,
+    ShippingRules,
+    Window,
+)
 from emporio.store_data import ProductFilter, StoreData
 
 logger = logging.getLogger(__name__)
@@ -424,3 +432,106 @@ class GetProductDetailsTool(Tool):
             }
             for _, _, other in options[:ALTERNATIVES_LIMIT]
         ]
+
+
+# ---------- get_order_status (FR-06, FR-08) ----------
+
+VERIFICATION_FAILED = "Could not verify this order with the information provided."
+
+_verifier = CustomerVerifier()
+_delay = DelayAssessor()
+_windows = ReturnWindows()
+
+
+def _fmt_date(value: date | None) -> str | None:
+    return value.strftime("%d/%m/%Y") if value else None
+
+
+def _window(window: Window) -> dict[str, Any]:
+    return {"deadline": _fmt_date(window.deadline), "is_open": window.is_open}
+
+
+class GetOrderStatusArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    order_id: int = Field(ge=1, description="Order number.")
+    email: str | None = Field(
+        default=None, min_length=3, description="E-mail used on the purchase."
+    )
+    phone: str | None = Field(
+        default=None, min_length=8, description="Phone used on the purchase, any format."
+    )
+
+    @model_validator(mode="after")
+    def _contact(self) -> GetOrderStatusArgs:
+        if not self.email and not self.phone:
+            raise ValueError("Give the e-mail or the phone of the purchase")
+        return self
+
+
+class GetOrderStatusTool(Tool):
+    name = "get_order_status"
+    description = (
+        "Look up ONE order: status, tracking, delay and return/warranty deadlines. Requires the "
+        "order number AND the e-mail or phone used on the purchase; ask the customer for both "
+        "before calling. Never guess contacts."
+    )
+    args_model = GetOrderStatusArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        assert isinstance(args, GetOrderStatusArgs)
+        data = self.context.data
+        order = data.get_order(args.order_id)
+        customer = data.get_customer(order.customer_id) if order else None
+        if order is None or customer is None:
+            raise ToolError("verification_failed", VERIFICATION_FAILED)
+        if not _verifier.verify(customer, email=args.email, phone=args.phone):
+            raise ToolError("verification_failed", VERIFICATION_FAILED)
+
+        today = self.context.now().astimezone(STORE_TZ).date()
+        items = []
+        for item in data.order_items(order.id):
+            product = data.get_product(item.product_id)
+            items.append({"name": product.name if product else "?", "quantity": item.quantity})
+        delay = _delay.assess(order, today)
+        windows = _windows.compute(order, today)
+        notes: list[str] = []
+        if delay.is_delayed:
+            notes.append(
+                "Order is delayed: apologize and offer escalate_to_human with reason "
+                "'delayed_order'."
+            )
+        return_windows = None
+        if windows is not None:
+            return_windows = {
+                "receipt_date_assumed": _fmt_date(windows.receipt_date),
+                "regret": _window(windows.regret),
+                "preference_exchange": _window(windows.preference_exchange),
+                "defect_exchange": _window(windows.defect_exchange),
+                "legal_warranty": _window(windows.legal_warranty),
+                "conditions_topic": "returns",
+            }
+            notes.append("Receipt date is assumed to be the estimated delivery date (A-11).")
+            notes.append(
+                "The regret right applies to online purchases: confirm with the customer (A-10)."
+            )
+            notes.append("For the conditions, call get_store_policy with topic 'returns'.")
+        return {
+            "verified": True,
+            "customer_first_name": customer.first_name,
+            "order": {
+                "id": order.id,
+                "order_date": _fmt_date(order.order_date),
+                "status": order.status.value,
+                "status_label": order.status.label_pt,
+                "items": items,
+                "total": str(order.total),
+                "payment_method": order.payment_method.label_pt,
+                "tracking_code": order.tracking_code,
+                "estimated_delivery": _fmt_date(order.estimated_delivery),
+                "cancellation_reason": order.notes if order.status.value == "cancelled" else None,
+            },
+            "delay": {"is_delayed": delay.is_delayed, "reason": delay.reason},
+            "return_windows": return_windows,
+            "notes": notes,
+        }
