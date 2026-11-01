@@ -52,6 +52,11 @@ class Tracer(Protocol):
     def emit(self, event: TraceEvent) -> None: ...
 
 
+# U+2010 HYPHEN and U+2011 NON-BREAKING HYPHEN, written by some models in codes such as
+# "79202-333" or "AC-39"; replies keep the data's ASCII hyphen (AS-73).
+_PLAIN_HYPHENS = str.maketrans({"\u2010": "-", "\u2011": "-"})
+
+
 def _masked_arguments(raw: str) -> dict[str, Any] | None:
     try:
         arguments = json.loads(raw) if raw else {}
@@ -152,5 +157,6 @@ class Agent:
                 )
 
     def _finish(self, content: str) -> str:
+        content = content.translate(_PLAIN_HYPHENS)
         self._history.append(Message(role="assistant", content=content))
         return content

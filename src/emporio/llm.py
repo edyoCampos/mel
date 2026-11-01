@@ -79,7 +79,7 @@ class LLMSettings:
         )
 
 
-RETRY_AFTER_CAP_SECONDS = 10.0  # AS-37
+RETRY_AFTER_CAP_SECONDS = 60.0  # AS-37, AS-73: per-minute token quotas reset within 60 s
 
 
 def _to_openai(message: Message) -> dict[str, Any]:
