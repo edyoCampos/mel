@@ -24,6 +24,9 @@ class ToolCall:
     id: str
     name: str
     arguments: str  # raw JSON string as produced by the model
+    # Opaque provider data echoed back on the next request, e.g. Gemini's
+    # thought_signature; Gemini 3 answers HTTP 400 without it (AS-60).
+    extra: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)
@@ -84,14 +87,18 @@ def _to_openai(message: Message) -> dict[str, Any]:
         return {"role": "tool", "tool_call_id": message.tool_call_id, "content": message.content}
     data: dict[str, Any] = {"role": message.role, "content": message.content}
     if message.tool_calls:
-        data["tool_calls"] = [
-            {
-                "id": call.id,
-                "type": "function",
-                "function": {"name": call.name, "arguments": call.arguments},
-            }
-            for call in message.tool_calls
-        ]
+        data["tool_calls"] = [_tool_call_to_openai(call) for call in message.tool_calls]
+    return data
+
+
+def _tool_call_to_openai(call: ToolCall) -> dict[str, Any]:
+    data: dict[str, Any] = {
+        "id": call.id,
+        "type": "function",
+        "function": {"name": call.name, "arguments": call.arguments},
+    }
+    if call.extra:
+        data["extra_content"] = call.extra
     return data
 
 
@@ -162,6 +169,7 @@ class OpenAICompatibleClient:
                 id=call.id or f"call_{index}",
                 name=call.function.name,
                 arguments=call.function.arguments or "{}",
+                extra=getattr(call, "extra_content", None) or None,
             )
             for index, call in enumerate(message.tool_calls or [])
         )
