@@ -25,7 +25,7 @@ class ToolCall:
     name: str
     arguments: str  # raw JSON string as produced by the model
     # Opaque provider data echoed back on the next request, e.g. Gemini's
-    # thought_signature; Gemini 3 answers HTTP 400 without it (AS-60).
+    # thought_signature; Gemini 3 answers HTTP 400 without it (AS-72).
     extra: dict[str, Any] | None = None
 
 

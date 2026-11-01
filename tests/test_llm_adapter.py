@@ -82,7 +82,7 @@ def test_message_conversion_to_openai_format() -> None:
 
 def test_tool_call_extra_content_round_trips() -> None:
     """Gemini 3 returns a thought_signature in extra_content and rejects (HTTP 400) a
-    follow-up request whose assistant tool_calls lack it (AS-60)."""
+    follow-up request whose assistant tool_calls lack it (AS-72)."""
     extra = {"google": {"thought_signature": "sig-abc"}}
     raw = completion(calls=[("c1", "get_store_hours", "{}")])
     raw.choices[0].message.tool_calls[0].extra_content = extra
@@ -168,7 +168,7 @@ def test_env_example_lists_both_providers() -> None:
     text = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
     active = [line for line in text.splitlines() if line and not line.startswith("#")]
     assert [line.split("=")[0] for line in active] == ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]
-    # D-09 fallback (AS-60): Groq is the active default, Gemini the commented alternative
+    # D-09 fallback (AS-72): Groq is the active default, Gemini the commented alternative
     assert "LLM_MODEL=openai/gpt-oss-120b" in active
     assert "LLM_BASE_URL=https://api.groq.com/openai/v1" in active
     assert "# LLM_MODEL=gemini-3.8-flash" in text
