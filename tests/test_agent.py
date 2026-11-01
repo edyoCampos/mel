@@ -78,6 +78,14 @@ def test_reply_uses_plain_hyphens(build: Any) -> None:
     assert agent.history[-1].content == "CEP 79202-333, Tagima AC-39"
 
 
+def test_reply_uses_plain_spaces_and_tight_percent(build: Any) -> None:
+    """gpt-oss writes U+202F/U+00A0 spaces and "12 %"; replies keep the data's plain
+    "R$ 429,90" and the Brazilian "12%" (AS-74)."""
+    llm = FakeLLM([text("R$\u202f429,90, 10\u00a0dias úteis, 12\u202f% e 20 %")])
+    agent, _ = build(llm)
+    assert agent.reply("oi") == "R$ 429,90, 10 dias úteis, 12% e 20%"
+
+
 def test_system_prompt_has_time_and_store_status(build: Any) -> None:
     llm = FakeLLM([text("ok")])
     agent, _ = build(llm)
