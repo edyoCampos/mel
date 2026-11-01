@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from emporio.models import Product, Promotion
+from emporio.models import Product, Promotion, normalize_text
 from emporio.money import Money
 
 # ---------- Installments (R-03, A-03) ----------
@@ -108,3 +108,33 @@ class PricingService:
     def can_combine_payment_methods(self, total: Money) -> bool:
         """Combining payment methods is allowed only above R$ 2.000,00 (policy 3.1)."""
         return total > COMBINED_PAYMENT_THRESHOLD
+
+
+# ---------- Shipping (R-05, A-19, A-24, A-25) ----------
+
+DRUMS_CATEGORY_ID = 3  # "Baterias e Percussão"
+
+
+class ShippingRules:
+    LOCAL_CITY = "Campo Grande"
+    FREE_SHIPPING_ABOVE = Money("500")
+    LOCAL_FEE = Money("35")
+
+    def is_local(self, city: str) -> bool:
+        """Only the municipality of Campo Grande gets the local rule (A-24)."""
+        return normalize_text(city) == normalize_text(self.LOCAL_CITY)
+
+    def local_delivery_fee(self, order_amount: Money) -> Money:
+        """Free strictly above R$ 500,00, otherwise R$ 35,00 (policy 5.1, A-19)."""
+        if order_amount > self.FREE_SHIPPING_ABOVE:
+            return Money.zero()
+        return self.LOCAL_FEE
+
+    def requires_special_quote(self, product: Product) -> bool:
+        """Acoustic drum kits need an individual freight quote (policy 5.2).
+
+        Electric basses are not the large acoustic "contrabaixos" of the manual (A-25).
+        """
+        return product.category_id == DRUMS_CATEGORY_ID and "bateria acustica" in normalize_text(
+            product.name
+        )

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from datetime import date
 from enum import StrEnum
 from typing import Annotated, Any
@@ -10,6 +11,13 @@ from typing import Annotated, Any
 from pydantic import BaseModel, ConfigDict, Field, PlainSerializer, PlainValidator, field_validator
 
 from emporio.money import Money
+
+
+def normalize_text(text: str) -> str:
+    """Lowercase, strip accents and collapse whitespace: ' Três  Lagoas ' -> 'tres lagoas'."""
+    decomposed = unicodedata.normalize("NFKD", text)
+    without_accents = "".join(c for c in decomposed if not unicodedata.combining(c))
+    return " ".join(without_accents.lower().split())
 
 
 def _parse_money(value: Any) -> Money:
