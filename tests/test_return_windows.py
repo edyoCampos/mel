@@ -1,4 +1,7 @@
-"""ReturnWindows (R-06, R-07, R-08, A-11, A-18). Order 7: ordered 03/02/2026, received 17/02/2026."""
+"""ReturnWindows (R-06, R-07, R-08, A-11, A-18).
+
+Order 7: ordered 03/02/2026, received 17/02/2026.
+"""
 
 from datetime import date
 

@@ -6,8 +6,9 @@ Nothing here reads files, the network or the clock: "now" is always passed in (D
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date, timedelta
 
-from emporio.models import Product, Promotion, normalize_text
+from emporio.models import Order, OrderStatus, Product, Promotion, normalize_text
 from emporio.money import Money
 
 # ---------- Installments (R-03, A-03) ----------
@@ -137,4 +138,47 @@ class ShippingRules:
         """
         return product.category_id == DRUMS_CATEGORY_ID and "bateria acustica" in normalize_text(
             product.name
+        )
+
+
+# ---------- Returns and warranty (R-06, R-07, R-08, A-11, A-18) ----------
+
+REGRET_DAYS = 7  # policy 4.1, from receipt
+PREFERENCE_EXCHANGE_DAYS = 7  # policy 4.3, from receipt (A-18)
+DEFECT_EXCHANGE_DAYS = 30  # policy 4.2, from purchase
+LEGAL_WARRANTY_DAYS = 90  # policy 8.1, from receipt
+
+
+@dataclass(frozen=True)
+class Window:
+    deadline: date
+    is_open: bool  # today <= deadline (inclusive, AS-16)
+
+
+@dataclass(frozen=True)
+class ReturnWindowsResult:
+    receipt_date: date  # estimated_delivery is used as the receipt date (A-11)
+    regret: Window
+    preference_exchange: Window
+    defect_exchange: Window
+    legal_warranty: Window
+
+
+class ReturnWindows:
+    def compute(self, order: Order, today: date) -> ReturnWindowsResult | None:
+        """Deadlines for a delivered order; None for any other order."""
+        if order.status is not OrderStatus.DELIVERED or order.estimated_delivery is None:
+            return None
+        receipt = order.estimated_delivery
+
+        def window(start: date, days: int) -> Window:
+            deadline = start + timedelta(days=days)
+            return Window(deadline=deadline, is_open=today <= deadline)
+
+        return ReturnWindowsResult(
+            receipt_date=receipt,
+            regret=window(receipt, REGRET_DAYS),
+            preference_exchange=window(receipt, PREFERENCE_EXCHANGE_DAYS),
+            defect_exchange=window(order.order_date, DEFECT_EXCHANGE_DAYS),
+            legal_warranty=window(receipt, LEGAL_WARRANTY_DAYS),
         )
