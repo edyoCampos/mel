@@ -16,11 +16,11 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
 from emporio.models import Product
 from emporio.policies import PolicyBook
-from emporio.services import PricingService
+from emporio.services import PricingService, ShippingRules
 from emporio.store_data import ProductFilter, StoreData
 
 logger = logging.getLogger(__name__)
@@ -261,3 +261,166 @@ class SearchProductsTool(Tool):
             "products": [product_summary(data, p) for p in shown],
             "note": note,
         }
+
+
+# ---------- get_product_details (FR-03, FR-04, FR-05, FR-07c) ----------
+
+MATCH_SCORE = 85  # AS-24
+MATCH_MARGIN = 5
+CANDIDATE_SCORE = 60
+ALTERNATIVES_LIMIT = 3
+ALTERNATIVES_PRICE_RANGE = Decimal("0.30")  # FR-04: +/- 30%
+
+_shipping = ShippingRules()
+
+
+class GetProductDetailsArgs(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    product_id: int | None = Field(default=None, ge=1, description="Product id, if known.")
+    query: str | None = Field(
+        default=None,
+        min_length=2,
+        description="Product name as the customer wrote it; typos are fine.",
+    )
+
+    @model_validator(mode="after")
+    def _one_of(self) -> GetProductDetailsArgs:
+        if self.product_id is None and not self.query:
+            raise ValueError("Give product_id or query")
+        return self
+
+
+class GetProductDetailsTool(Tool):
+    name = "get_product_details"
+    description = (
+        "Get price, PIX price, installments, promotion, availability, local delivery fee and "
+        "similar alternatives for ONE product. Use it whenever the customer asks about a "
+        "specific instrument. Copy amounts exactly as returned. Pass product_id or query."
+    )
+    args_model = GetProductDetailsArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        assert isinstance(args, GetProductDetailsArgs)
+        data = self.context.data
+        if args.product_id is not None:
+            product = data.get_product(args.product_id)
+            if product is None:
+                raise ToolError("not_found", f"No product with id {args.product_id}.")
+            return self._details(product)
+        assert args.query is not None
+        matches = data.match_product_name(args.query, limit=ALTERNATIVES_LIMIT)
+        best = matches[0] if matches else None
+        second = matches[1].score if len(matches) > 1 else 0.0
+        if best and best.score >= MATCH_SCORE and best.score - second >= MATCH_MARGIN:
+            return self._details(best.product)
+        candidates = [m for m in matches if m.score >= CANDIDATE_SCORE]
+        if candidates:
+            return {
+                "status": "ambiguous",
+                "candidates": [
+                    {
+                        "id": m.product.id,
+                        "name": m.product.name,
+                        "current_price": str(data.current_price(m.product)),
+                        "availability": m.product.availability.value,
+                    }
+                    for m in candidates
+                ],
+                "note": "Ask the customer which one they mean.",
+            }
+        return {"status": "not_found", "message": f"No product matches {args.query!r}."}
+
+    def _details(self, product: Product) -> dict[str, Any]:
+        data = self.context.data
+        summary = product_summary(data, product)
+        inactive = [
+            {"discount_percent": p.discount_percent, "description": p.description}
+            for p in data.promotions_for(product.id)
+            if not p.is_active
+        ]
+        promotion_display = None
+        if summary["promotion"] is not None:
+            promotion = summary["promotion"]
+            promotion_display = (
+                f"de {summary['price']} por {promotion['promotional_price']} "
+                f"({promotion['discount_percent']}% off)"
+            )
+        notes = []
+        if summary["promotion"] is not None:
+            notes.append("Promotions do not stack with the PIX discount.")
+            notes.append(
+                "Items sold out during a promotion do not keep the promotional price "
+                "(no rain check)."
+            )
+        if inactive:
+            notes.append(
+                "inactive_promotions are no longer valid: say so and give the current price."
+            )
+        return {
+            "status": "found",
+            "product": {
+                "id": product.id,
+                "name": product.name,
+                "category": summary["category"],
+                "description": product.description,
+                "specs": product.specs,
+                "availability": summary["availability"],
+            },
+            "pricing": {
+                "list_price": summary["price"],
+                "active_promotion": summary["promotion"],
+                "inactive_promotions": inactive,
+                "current_price": summary["current_price"],
+                "pix_price": summary["pix_price"],
+                "best_installments": summary["best_installments"],
+                "promotion_display": promotion_display,
+            },
+            "delivery": self._delivery(product),
+            "alternatives": self._alternatives(product),
+            "notes": notes,
+        }
+
+    def _delivery(self, product: Product) -> dict[str, Any]:
+        if _shipping.requires_special_quote(product):
+            quote = "cotação especial — encaminhar para um atendente (escalate_to_human)"
+            return {
+                "campo_grande_fee": quote,
+                "campo_grande_time": "a combinar",
+                "other_cities": quote,
+                "requires_special_quote": True,
+            }
+        fee = _shipping.local_delivery_fee(self.context.data.current_price(product))
+        return {
+            "campo_grande_fee": "Grátis" if fee == fee.zero() else str(fee),
+            "campo_grande_time": "1 a 3 dias úteis",
+            "other_cities": (
+                "Correios (PAC ou SEDEX) ou Jadlog; valor calculado pelo CEP — "
+                "encaminhar para cotação"
+            ),
+            "requires_special_quote": False,
+        }
+
+    def _alternatives(self, product: Product) -> list[dict[str, Any]]:
+        if product.is_sellable:
+            return []
+        data = self.context.data
+        base = data.current_price(product).amount
+        limit = base * ALTERNATIVES_PRICE_RANGE
+        options = []
+        for other in data.products_in_category(product.category_id):
+            if other.id == product.id or not other.is_sellable:
+                continue
+            price = data.current_price(other).amount
+            if abs(price - base) <= limit:
+                options.append((abs(price - base), price, other))
+        options.sort(key=lambda o: (o[0], o[1]))
+        return [
+            {
+                "id": other.id,
+                "name": other.name,
+                "current_price": str(data.current_price(other)),
+                "availability": other.availability.value,
+            }
+            for _, _, other in options[:ALTERNATIVES_LIMIT]
+        ]

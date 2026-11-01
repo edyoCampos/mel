@@ -115,7 +115,7 @@ def test_ambiguous_query_returns_candidates(details: Any) -> None:
 
 
 def test_unknown_query_not_found(details: Any) -> None:
-    result = details({"query": "gibson les paul custom"})
+    result = details({"query": "violino stradivarius"})
     assert result.payload["status"] == "not_found"
 
 
