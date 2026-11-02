@@ -25,7 +25,7 @@ class ToolCall:
     name: str
     arguments: str  # raw JSON string as produced by the model
     # Opaque provider data echoed back on the next request, e.g. Gemini's
-    # thought_signature; Gemini 3 answers HTTP 400 without it (AS-72).
+    # thought_signature; Gemini 3 answers HTTP 400 without it.
     extra: dict[str, Any] | None = None
 
 
@@ -65,7 +65,7 @@ class LLMSettings:
     timeout_seconds: float = 30.0
     max_attempts: int = 3  # D-09: at most 3 attempts on HTTP 429
     backoff_base_seconds: float = 1.0
-    # Optional LLM_REASONING_EFFORT ("low", "none", ...); empty means not sent (AS-76)
+    # Optional LLM_REASONING_EFFORT ("low", "none", ...); empty means not sent
     reasoning_effort: str | None = None
 
     @classmethod
@@ -82,20 +82,20 @@ class LLMSettings:
         )
 
 
-# HTTP 429 (rate limit), 502 and 503 (provider overloaded) share the retry policy (AS-81)
+# HTTP 429 (rate limit), 502 and 503 (provider overloaded) share the retry policy
 RETRYABLE_STATUS = frozenset({429, 502, 503})
 DEGENERATE_ALNUM_RATIO = 0.3
 
 
 def is_degenerate(content: str | None) -> bool:
-    """Empty text, or text that is mostly symbols, zero-width spaces and ellipses (AS-81)."""
+    """Empty text, or text that is mostly symbols, zero-width spaces and ellipses."""
     visible = [c for c in (content or "") if not c.isspace()]
     if not visible:
         return True
     return sum(c.isalnum() for c in visible) / len(visible) < DEGENERATE_ALNUM_RATIO
 
 
-RETRY_AFTER_CAP_SECONDS = 60.0  # AS-37, AS-73: per-minute token quotas reset within 60 s
+RETRY_AFTER_CAP_SECONDS = 60.0  # per-minute token quotas reset within 60 s
 
 
 def _to_openai(message: Message) -> dict[str, Any]:
@@ -132,7 +132,7 @@ class OpenAICompatibleClient:
     def __init__(self, settings: LLMSettings, sleep: Callable[[float], None] = time.sleep) -> None:
         self._settings = settings
         self._sleep = sleep
-        # max_retries=0: the only retry logic is ours, on HTTP 429 (AS-36)
+        # max_retries=0: the only retry logic is ours, on HTTP 429
         self._client = openai.OpenAI(
             base_url=settings.base_url,
             api_key=settings.api_key,
@@ -174,7 +174,7 @@ class OpenAICompatibleClient:
                     ) from None
                 hinted = _retry_after(exc)
                 if hinted is not None and hinted > RETRY_AFTER_CAP_SECONDS:
-                    # e.g. a daily token quota; waiting the cap cannot help (AS-75)
+                    # e.g. a daily token quota; waiting the cap cannot help
                     raise LLMError(f"rate limited by provider; retry in {hinted:.0f} s") from None
                 if hinted is not None:
                     wait = min(max(wait, hinted), RETRY_AFTER_CAP_SECONDS)
@@ -188,7 +188,7 @@ class OpenAICompatibleClient:
                 raise LLMError(f"provider error: {type(exc).__name__}") from None
             if response.tool_calls or not is_degenerate(response.content):
                 return response
-            # Empty or garbage text is never shown to the customer (AS-81)
+            # Empty or garbage text is never shown to the customer
             if last:
                 raise LLMError("empty or degenerate response from provider")
             self._sleep(wait)

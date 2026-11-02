@@ -68,7 +68,7 @@ class OrderStatus(StrEnum):
         return _ORDER_STATUS_PT[self.value]
 
     def label(self, language: str = "pt") -> str:
-        """Label in the customer's language, 'pt' or 'en' (AS-84)."""
+        """Label in the customer's language, 'pt' or 'en'."""
         return self.value if language == "en" else self.label_pt
 
 
@@ -110,7 +110,7 @@ class PaymentMethod(BaseModel):
         }[self.kind]
 
     def label(self, language: str = "pt") -> str:
-        """Label in the customer's language, 'pt' or 'en' (AS-84)."""
+        """Label in the customer's language, 'pt' or 'en'."""
         if language != "en":
             return self.label_pt
         if self.kind is PaymentKind.CREDIT:

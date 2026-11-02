@@ -32,7 +32,7 @@ from emporio.tools import ToolContext, ToolRegistry
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FILE = ROOT / "tests" / "scenarios.yaml"
 FAILURES_DIR = ROOT / ".scenario-failures"  # transcripts of failing scenarios, not versioned
-DEFAULT_PAUSE = 5.0  # AS-38: stay under free-tier rate limits
+DEFAULT_PAUSE = 5.0  # stay under free-tier rate limits
 
 
 @dataclass(frozen=True)

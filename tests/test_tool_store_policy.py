@@ -53,7 +53,7 @@ def test_every_topic_maps_to_sections(policy: Any, topic: str) -> None:
     assert payload["text"]
 
 
-# ---------- Seasonal campaigns computed from promotions.csv (FR-15, AS-79) ----------
+# ---------- Seasonal campaigns computed from promotions.csv (FR-15) ----------
 
 
 def test_promotions_topic_lists_no_active_campaign(policy: Any) -> None:

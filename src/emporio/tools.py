@@ -217,7 +217,7 @@ def product_summary(data: StoreData, product: Product) -> dict[str, Any]:
 
 # ---------- search_products (FR-02, FR-16) ----------
 
-SEARCH_LIMIT = 15  # AS-06: FR-02 must list the 12 violoes up to R$ 1.000
+SEARCH_LIMIT = 15  # FR-02 must list the 12 violoes up to R$ 1.000
 
 
 class SearchProductsArgs(BaseModel):
@@ -304,7 +304,7 @@ class SearchProductsTool(Tool):
 
 # ---------- get_product_details (FR-03, FR-04, FR-05, FR-07c) ----------
 
-MATCH_SCORE = 85  # AS-24
+MATCH_SCORE = 85  # fuzzy score for a confident name match
 MATCH_MARGIN = 5
 CANDIDATE_SCORE = 60
 ALTERNATIVES_LIMIT = 3
@@ -568,7 +568,7 @@ class GetOrderStatusTool(Tool):
 
 
 # Seasonal campaigns named in the manual (§6.1) and in promotions.csv; "Oferta Especial"
-# and "Desconto Exclusivo" are product promotions, not campaigns (AS-79)
+# and "Desconto Exclusivo" are product promotions, not campaigns
 SEASONAL_CAMPAIGNS = (
     "Aniversário da Loja",
     "Black Friday",

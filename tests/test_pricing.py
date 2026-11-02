@@ -62,7 +62,7 @@ def test_combine_payment_methods_above_2000_is_true() -> None:
     assert pricing.can_combine_payment_methods(Money("2000.01")) is True
 
 
-# ---------- Ready-to-copy display strings (AS-78) ----------
+# ---------- Ready-to-copy display strings ----------
 
 
 def test_display_without_promotion() -> None:

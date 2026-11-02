@@ -88,7 +88,7 @@ def test_reply_without_tools_returns_text(build: Any) -> None:
 
 def test_reply_uses_plain_hyphens(build: Any) -> None:
     """Some models write U+2010/U+2011 hyphens; the customer must be able to copy
-    "79202-333" or "AC-39" as typed in the data (AS-73)."""
+    "79202-333" or "AC-39" as typed in the data."""
     llm = FakeLLM([text("CEP 79202\u2011333, Tagima AC\u201039")])
     agent, _ = build(llm)
     assert agent.reply("oi") == "CEP 79202-333, Tagima AC-39"
@@ -97,7 +97,7 @@ def test_reply_uses_plain_hyphens(build: Any) -> None:
 
 def test_reply_uses_plain_spaces_and_tight_percent(build: Any) -> None:
     """gpt-oss writes U+202F/U+00A0 spaces and "12 %"; replies keep the data's plain
-    "R$ 429,90" and the Brazilian "12%" (AS-74)."""
+    "R$ 429,90" and the Brazilian "12%"."""
     llm = FakeLLM([text("R$\u202f429,90, 10\u00a0dias úteis, 12\u202f% e 20 %")])
     agent, _ = build(llm)
     assert agent.reply("oi") == "R$ 429,90, 10 dias úteis, 12% e 20%"
@@ -248,7 +248,7 @@ def test_reset_clears_history(build: Any) -> None:
     assert agent.history == []
 
 
-# ---------- Protocol guard (D-12 exception, AS-80) ----------
+# ---------- Protocol guard (D-12 exception) ----------
 
 
 @pytest.fixture
@@ -338,7 +338,7 @@ def test_reply_without_protocol_is_untouched(build_esc: Any) -> None:
     assert len(llm.requests) == 1
 
 
-# ---------- Language guard (AS-82) ----------
+# ---------- Language guard ----------
 
 
 def test_portuguese_reply_to_english_message_gets_one_retry(build: Any) -> None:
@@ -404,7 +404,7 @@ def test_english_product_names_in_portuguese_message_do_not_trigger_guard(
     assert "language_guard" not in [e.kind for e in recorder.events]
 
 
-# ---------- Customer language for code-written phrases (AS-84) ----------
+# ---------- Customer language for code-written phrases ----------
 
 
 class LanguageProbeTool(Tool):

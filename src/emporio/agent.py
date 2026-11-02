@@ -37,7 +37,7 @@ FALLBACK_LIMIT = (
     "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
 )
 EMPTY_MESSAGE_REPLY = "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?"
-# Protocol guard (D-12 exception, AS-80): a protocol exists only when escalate_to_human
+# Protocol guard (D-12 exception): a protocol exists only when escalate_to_human
 # returned it. A reply that mentions one without that gets one retry with this instruction
 # (sent, never stored in the history); a second miss returns the store contacts.
 PROTOCOL_NUDGE = (
@@ -51,7 +51,7 @@ FALLBACK_NO_PROTOCOL = (
 )
 _PROTOCOL_WORD = re.compile(r"protocol", re.IGNORECASE)
 _PROTOCOL_CODE = re.compile(r"EM-\d{8}-\d{4}")
-# Language guard (AS-82): an English customer message answered in Portuguese gets one retry
+# Language guard (D-12 exception): an English customer message answered in Portuguese gets one retry
 # with this instruction (sent, never stored); a second Portuguese draft is kept.
 LANGUAGE_NUDGE = (
     "The customer's latest message is in English. Rewrite your reply entirely in English, "
@@ -116,10 +116,10 @@ class Tracer(Protocol):
 
 
 # U+2010 HYPHEN and U+2011 NON-BREAKING HYPHEN, written by some models in codes such as
-# "79202-333" or "AC-39"; replies keep the data's ASCII hyphen (AS-73).
+# "79202-333" or "AC-39"; replies keep the data's ASCII hyphen.
 _PLAIN_HYPHENS = str.maketrans({"\u2010": "-", "\u2011": "-"})
 # U+00A0 and U+202F (no-break spaces) become plain spaces, and "12 %" becomes "12%", so
-# "R$ 429,90" reads as the tools wrote it (AS-74).
+# "R$ 429,90" reads as the tools wrote it.
 _PLAIN_SPACES = str.maketrans({"\u00a0": " ", "\u202f": " "})
 _SPACED_PERCENT = re.compile(r"(\d) %")
 
@@ -158,7 +158,7 @@ class Agent:
         self._store_hours = store_hours
         self._tracer = tracer
         self._history: list[Message] = []
-        self._protocols: set[str] = set()  # returned by escalate_to_human (AS-80)
+        self._protocols: set[str] = set()  # returned by escalate_to_human
         # Customer language, kept when a message is ambiguous ("ok"); Portuguese by default
         self._language: Language = "pt"
 
@@ -196,7 +196,7 @@ class Agent:
             return EMPTY_MESSAGE_REPLY
         self._history.append(Message(role="user", content=user_message.strip()))
         self._language = detect_language(user_message) or self._language
-        # Tools write customer-facing phrases in this language (AS-84)
+        # Tools write customer-facing phrases in this language
         token = CUSTOMER_LANGUAGE.set(self._language)
         try:
             return self._run_turn()

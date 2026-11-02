@@ -39,7 +39,7 @@ CSV_FILES: dict[str, str] = {
     "promotions": "desafio_tecnico_ai_eng - promotions.csv",
 }
 
-# Instrument words customers use, mapped to category ids (AS-59).
+# Instrument words customers use, mapped to category ids.
 CATEGORY_ALIASES: dict[str, int] = {
     **dict.fromkeys(["guitarra", "guitarras"], 1),
     **dict.fromkeys(["baixo", "baixos", "contrabaixo", "contrabaixos"], 2),

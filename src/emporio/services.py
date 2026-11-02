@@ -17,7 +17,7 @@ import holidays
 from emporio.models import Customer, Order, OrderStatus, Product, Promotion, normalize_text
 from emporio.money import Money
 
-# ---------- Customer language (D-19, AS-82, AS-84) ----------
+# ---------- Customer language (D-19) ----------
 
 Language = Literal["pt", "en"]
 # The language of the customer's conversation, set by the Agent for each turn and read by the
@@ -88,7 +88,7 @@ class InstallmentCalculator:
         return Money("100")
 
     def max_installments(self, price: Money) -> int:
-        """Largest count with price >= count x minimum, compared exactly (AS-08)."""
+        """Largest count with price >= count x minimum, compared exactly."""
         for count in range(self.MAX_INSTALLMENTS, 0, -1):
             if price >= self.minimum_installment(count) * count:
                 return count
@@ -119,7 +119,7 @@ class PriceQuote:
     pix_price: Money | None  # list price minus 5%; None when a promotion is active (R-02)
     best_installments: InstallmentPlan
 
-    # Ready-to-copy strings: the model copies them instead of composing prices (AS-78)
+    # Ready-to-copy strings: the model copies them instead of composing prices
     @property
     def price_display(self) -> str:
         """'de R$ 549,00 por R$ 439,20 (20% off)' with an active promotion, else 'R$ 2.199,00'."""
@@ -213,7 +213,7 @@ LEGAL_WARRANTY_DAYS = 90  # policy 8.1, from receipt
 @dataclass(frozen=True)
 class Window:
     deadline: date
-    is_open: bool  # today <= deadline (inclusive, AS-16)
+    is_open: bool  # today <= deadline (inclusive)
 
 
 @dataclass(frozen=True)
@@ -325,7 +325,7 @@ def mask_phone(phone: str) -> str:
 
 # ---------- Store hours (R-10, R-15, A-17) ----------
 
-STORE_TZ = ZoneInfo("America/Campo_Grande")  # UTC-04:00 (AS-04)
+STORE_TZ = ZoneInfo("America/Campo_Grande")  # UTC-04:00
 
 # weekday -> (opening, closing); Sunday is closed (policy 2)
 _SCHEDULE: dict[int, tuple[time, time]] = {
@@ -349,7 +349,7 @@ WEEKDAYS_PT = [
 
 
 def describe_opening(opening: datetime, language: Language = "pt") -> str:
-    """'terça-feira, 03/11/2026, às 09:00' or 'Tuesday, 03/11/2026, at 09:00' (AS-80, AS-84)."""
+    """'terça-feira, 03/11/2026, às 09:00' or 'Tuesday, 03/11/2026, at 09:00'."""
     if language == "en":
         return f"{_WEEKDAYS[opening.weekday()]}, {opening:%d/%m/%Y}, at {opening:%H:%M}"
     return f"{WEEKDAYS_PT[opening.weekday()]}, {opening:%d/%m/%Y}, às {opening:%H:%M}"

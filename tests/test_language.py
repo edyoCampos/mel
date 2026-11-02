@@ -1,4 +1,4 @@
-"""Customer language: detection and the code-written phrases in Portuguese and English (AS-84)."""
+"""Customer language: detection and the code-written phrases in Portuguese and English."""
 
 from collections.abc import Callable, Iterator
 from datetime import datetime

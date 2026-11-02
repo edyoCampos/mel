@@ -82,7 +82,7 @@ def test_message_conversion_to_openai_format() -> None:
 
 def test_tool_call_extra_content_round_trips() -> None:
     """Gemini 3 returns a thought_signature in extra_content and rejects (HTTP 400) a
-    follow-up request whose assistant tool_calls lack it (AS-72)."""
+    follow-up request whose assistant tool_calls lack it."""
     extra = {"google": {"thought_signature": "sig-abc"}}
     raw = completion(calls=[("c1", "get_store_hours", "{}")])
     raw.choices[0].message.tool_calls[0].extra_content = extra
@@ -167,7 +167,7 @@ def test_respects_retry_after_header() -> None:
 
 
 def test_retry_after_is_capped() -> None:
-    # 60 s: per-minute token quotas (Groq free tier: 8000 TPM) reset within a minute (AS-73)
+    # 60 s: per-minute token quotas (Groq free tier: 8000 TPM) reset within a minute
     limited = http_error(openai.RateLimitError, 429, **{"retry-after": "60"})
     client, _, sleeps = make_client([limited, completion()])
     client.complete([Message(role="user", content="oi")])
@@ -175,7 +175,7 @@ def test_retry_after_is_capped() -> None:
 
 
 def test_gives_up_at_once_when_retry_after_exceeds_cap() -> None:
-    """A daily quota answers retry-after: 650; waiting 2 x 60 s cannot help (AS-75)."""
+    """A daily quota answers retry-after: 650; waiting 2 x 60 s cannot help."""
     limited = http_error(openai.RateLimitError, 429, **{"retry-after": "650"})
     client, stub, sleeps = make_client([limited, completion()])
     with pytest.raises(LLMError, match="650 s"):
@@ -199,14 +199,14 @@ def test_env_example_lists_both_providers() -> None:
     text = (Path(__file__).resolve().parents[1] / ".env.example").read_text(encoding="utf-8")
     active = [line for line in text.splitlines() if line and not line.startswith("#")]
     assert [line.split("=")[0] for line in active] == ["LLM_BASE_URL", "LLM_API_KEY", "LLM_MODEL"]
-    # D-09 fallback (AS-72): Groq is the active default, Gemini the commented alternative
+    # D-09 fallback: Groq is the active default, Gemini the commented alternative
     assert "LLM_MODEL=openai/gpt-oss-120b" in active
     assert "LLM_BASE_URL=https://api.groq.com/openai/v1" in active
     assert "# LLM_MODEL=gemini-3.8-flash" in text
     assert "# LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/" in text
 
 
-# ---------- 502/503 like 429; empty or degenerate replies (AS-81) ----------
+# ---------- 502/503 like 429; empty or degenerate replies ----------
 
 
 @pytest.mark.parametrize("status", [502, 503])
