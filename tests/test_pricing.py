@@ -68,7 +68,7 @@ def test_combine_payment_methods_above_2000_is_true() -> None:
 def test_display_without_promotion() -> None:
     quote = pricing.quote(make_product(), [])
     assert quote.price_display == "R$ 2.199,00"
-    assert quote.pix_display == "R$ 2.089,05 no PIX"
+    assert quote.pix_display == "R$ 2.089,05"
     assert quote.installments_display == "até 12x de R$ 183,25 sem juros"
 
 

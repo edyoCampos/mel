@@ -46,3 +46,8 @@ def test_template_names_all_five_tools() -> None:
 
 def test_template_forbids_computing_prices() -> None:
     assert "Never calculate, round or estimate amounts yourself" in TEMPLATE
+
+
+def test_template_shows_pix_as_label_and_value() -> None:
+    """pix_display is only the amount; the prompt adds the "PIX:" label once (AS-83)."""
+    assert "PIX: <pix_display>" in TEMPLATE

@@ -31,7 +31,7 @@ def test_takamine_by_query_with_typo(details: Any) -> None:
     assert pricing["pix_price"] == "R$ 2.089,05"
     assert pricing["best_installments"] == "12x de R$ 183,25 sem juros"
     assert pricing["price_display"] == "R$ 2.199,00"
-    assert pricing["pix_display"] == "R$ 2.089,05 no PIX"
+    assert pricing["pix_display"] == "R$ 2.089,05"
     assert pricing["installments_display"] == "até 12x de R$ 183,25 sem juros"
 
 
