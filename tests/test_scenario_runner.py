@@ -87,6 +87,20 @@ def test_must_not_include_fails(run: Any) -> None:
     assert any("must not include" in f for f in result.failures)
 
 
+def test_first_reply_must_not_include_checks_only_the_first_reply(run: Any) -> None:
+    item = scenario(
+        messages=["posso devolver?", "pedido 7"],
+        expected_tools=[],
+        must_include=[],
+        first_reply_must_not_include=["pode devolver, sim"],
+    )
+    later = run(item, FakeLLM([text("Preciso do pedido."), text("Pode devolver, sim.")]))
+    assert later.passed, later.failures
+    first = run(item, FakeLLM([text("Pode devolver, sim!"), text("Ok.")]))
+    assert not first.passed
+    assert any("first reply must not include" in f for f in first.failures)
+
+
 def test_pause_between_scenarios() -> None:
     sleeps: list[float] = []
     items = [scenario(id="a"), scenario(id="b"), scenario(id="c")]

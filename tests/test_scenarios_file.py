@@ -39,3 +39,15 @@ def test_five_exports_in_examples() -> None:
 def test_expected_tools_exist() -> None:
     for item in ITEMS:
         assert set(item.expected_tools) <= TOOLS, item.id
+
+
+def test_regret_scenario_forbids_label_and_early_eligibility() -> None:
+    item = next(s for s in ITEMS if s.id == "regret-within-window")
+    assert "etiqueta" in item.must_not_include
+    assert "pode devolver, sim" in item.first_reply_must_not_include
+
+
+def test_acoustic_guitars_scenario_lists_all_twelve() -> None:
+    item = next(s for s in ITEMS if s.id == "acoustic-guitars-up-to-1000")
+    for name in ["Rozini RC-104", "Giannini GN-15", "Yamaha F310", "Tagima Woodstock"]:
+        assert name in item.must_include
