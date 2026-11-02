@@ -52,9 +52,6 @@ CATEGORY_ALIASES: dict[str, int] = {
     **dict.fromkeys(["ukulele", "ukuleles"], 9),
 }
 
-MATCH_THRESHOLD = 85
-CANDIDATE_THRESHOLD = 60
-
 
 class DataLoadError(Exception):
     """Missing file, missing column or invalid row; the message names the file and the row."""
