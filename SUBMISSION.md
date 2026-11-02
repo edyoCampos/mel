@@ -61,13 +61,14 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **15/15**. Earlier the same day:
-Groq 15/15 on the code before the review fixes, then DeepSeek 12/15, 13/15 and 14/15; each
-failure was fixed in code (an alternatives guard, a product name lookup that ignores category
-words) or in a check stricter than the requirement (dates without the year). The runner saves
-the transcript of every failing scenario. Groq stays recommended (free); the final runs used
-DeepSeek, as Groq's free tier fits one full run a day. Every run:
-[`docs/scenarios.md`](docs/scenarios.md).
+Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **17/17**. Earlier the same day:
+Groq 15/15 on the code before the review fixes, then DeepSeek 12/15, 13/15, 14/15 and 15/15;
+each failure was fixed in code (an alternatives guard, a product name lookup that ignores category
+words) or in a check stricter than the requirement (dates without the year). An independent
+review then found two bugs (searching "Kala" also brought "Kalani"; the legal warranty was missing
+from the returns policy), fixed and covered by two new scenarios. The runner saves the transcript
+of every failing scenario. Groq stays recommended (free); the final runs used DeepSeek, as Groq's
+free tier fits one full run a day. Every run: [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 

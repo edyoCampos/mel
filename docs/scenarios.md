@@ -39,7 +39,7 @@ adapter, changing only environment variables.
 
 ## Results
 
-**Final full run on DeepSeek `deepseek-flash`, 02/11/2026, final code: 15/15.**
+**Final full run on DeepSeek `deepseek-flash`, 02/11/2026, final code: 17/17.**
 
 The runner saves the full transcript of every failing scenario (messages, tool calls with their
 arguments, tool results, guard events and the calls refused by the 6-call limit) in
@@ -59,6 +59,7 @@ History, every run, including the ones that failed:
 | 02/11/2026 | DeepSeek | `order-verified-by-phone` alone | 1/1 | |
 | 02/11/2026 | DeepSeek | Full run with the alternatives guard and the failure transcripts | 14/15 | `out-of-stock-alternatives`: the transcript showed a bug in the product name lookup. "violão Giannini GF-3D" came back as ambiguous (the word "violão" lowered the score below the threshold), the model looked up every candidate and hit the 6-call limit, so the alternatives guard never ran. Fix: the lookup drops words that only name the category, and a model code found in one product name ("gf3d") resolves to that product |
 | 02/11/2026 | DeepSeek | `out-of-stock-alternatives` alone | 1/1 | One `get_product_details` call |
-| 02/11/2026 | DeepSeek | Final full run, no `--export`, final code | **15/15** | |
+| 02/11/2026 | DeepSeek | Full run, no `--export` | 15/15 | |
+| 02/11/2026 | DeepSeek | Final full run, no `--export`, after an independent review | **17/17** | The review found two bugs, each now covered by a new scenario. `kala-not-kalani`: the search matched parts of words, so "ukulele Kala" also brought the Kalani brand; text search and the name lookup now match whole words. `defect-legal-warranty`: the returns topic read only the returns section of the manual, and Mel denied the 90-day legal warranty for a defect 40 days after receipt; the returns topic now includes the warranty section. The same pass added a clear message when the provider quota is used up |
 
 Results vary between runs even at temperature 0: a pass is a measurement, not a guarantee.

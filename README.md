@@ -209,21 +209,10 @@ taken for each.
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
-**Scenario results: final full run on DeepSeek `deepseek-flash`, 02/11, final code: 15/15.**
-
-How we got there, all on 02/11: Groq `openai/gpt-oss-120b` passed 15/15 in the morning (code
-before the review fixes; 41 calls, about 108k tokens). After the review fixes, the full runs on
-DeepSeek gave 12/15, 13/15 and 14/15. Each failure was fixed in code or in a check that was
-stricter than the requirement: date checks now accept the date without the
-year; a guard makes Mel present the alternatives the tool returned for an unavailable product;
-and the product name lookup ignores category words ("violão Giannini GF-3D" had come back as
-ambiguous). The runner now saves the transcript of every failing scenario, which is how the
-lookup bug was found. Every run is in the history table of [`docs/scenarios.md`](docs/scenarios.md).
-
-These are results **measured on that day, not a guarantee**: the model's answers vary between
-runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
-fail a scenario on wording or on the provider. The 15 scenarios, what each one checks and the
-history of the runs are in [`docs/scenarios.md`](docs/scenarios.md).
+**Scenario results: final full run on DeepSeek `deepseek-flash`, 02/11/2026, final code:
+17/17.** This is a measurement on that day, not a guarantee: answers vary between runs even at
+temperature 0. What each scenario checks and the history of every run, including the failing
+ones and the bugs they found: [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Example conversations
 
@@ -253,7 +242,7 @@ re-exporting them:
 - The data does not say how a purchase was made nor when it was actually received (A-10, A-11).
 - History is lost when the CLI closes; escalation protocols go only to a local log file.
 - The metropolitan region is reduced to the city of Campo Grande (A-24).
-- Answers vary between runs: the scenario result (15/15 on 02/11/2026) is a measurement, not a
+- Answers vary between runs: the scenario result (17/17 on 02/11/2026) is a measurement, not a
   guarantee. Scenarios check required and forbidden text, so a correct answer worded differently
   can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
