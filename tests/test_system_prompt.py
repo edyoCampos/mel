@@ -51,3 +51,11 @@ def test_template_forbids_computing_prices() -> None:
 def test_template_shows_pix_as_label_and_value() -> None:
     """pix_display is only the amount; the prompt adds the "PIX:" label once (AS-83)."""
     assert "PIX: <pix_display>" in TEMPLATE
+
+
+def test_template_presents_alternatives_without_asking_first() -> None:
+    """The model asked before showing the alternatives the tool returned (AS-88)."""
+    assert (
+        "When the product is unavailable, present the alternatives the tool returned, "
+        "without asking first." in " ".join(TEMPLATE.split())
+    )
