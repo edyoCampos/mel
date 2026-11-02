@@ -81,6 +81,17 @@ Each turn: the agent builds the system prompt with the current date, time and st
 (open/closed, next opening), sends it with the conversation and the tool schemas, executes the
 tools the model asks for (at most 6 calls per turn), and returns the final answer.
 
+Two deterministic guards check the final answer before it reaches the customer, because the
+model ignored the matching prompt rule during the scenario runs (D-12 in
+[`DECISIONS.md`](DECISIONS.md)). Each is a regex or word check, not a second model, and costs one
+extra call only when it fires:
+
+- **Protocol guard:** an answer that mentions a protocol when `escalate_to_human` did not return
+  one (the model once invented "2026-11-00123") is retried once with an instruction to call the
+  tool; a second miss returns the store contacts instead.
+- **Language guard:** a Portuguese answer to an English message is retried once with an
+  instruction to answer in English; a second Portuguese draft is kept.
+
 | Tool | When the model uses it |
 | --- | --- |
 | `search_products` | Which instruments exist in a category, price range or with a feature |
@@ -106,8 +117,8 @@ Code layout (`src/emporio/`, one flat package):
 | `services.py` | Every business rule of the manual, pure and tested: pricing, installments, shipping, return windows, delays, identity check, store hours |
 | `policies.py` | The manual (converted to Markdown) retrieved by topic |
 | `tools.py` | The 5 tools, their JSON schemas and dispatch |
-| `llm.py` | Provider-independent `LLMClient` protocol + OpenAI-compatible adapter with 429 retry |
-| `agent.py` | Tool-calling loop and session history |
+| `llm.py` | Provider-independent `LLMClient` protocol + OpenAI-compatible adapter; retries HTTP 429, 502 and 503, and empty or degenerate replies |
+| `agent.py` | Tool-calling loop, session history, protocol and language guards |
 | `cli.py` | Terminal chat (`typer` + `rich`) |
 | `prompts/system.md` | Mel's system prompt |
 
@@ -204,16 +215,56 @@ taken for each.
 | --- | --- | --- |
 | Unit | Money, every rule of the manual (installments, PIX × promotion, shipping, return windows, delays, identity, store hours with holidays) | Yes |
 | Integration | CSV loading, the 5 tools end to end, the manual's 10 sections | Yes |
-| Agent loop | Scripted `FakeLLM`: tool → answer, invalid arguments, 6-call limit, LLM errors | Yes |
+| Agent loop | Scripted `FakeLLM`: tool → answer, invalid arguments, 6-call limit, LLM errors, protocol and language guards (including English product names in Portuguese messages) | Yes |
 | Scenarios | 15 real conversations checking tools called and required/forbidden text (`tests/scenarios.yaml`) | No (needs an API key) |
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
-**Scenario results:** _to be filled after the run with the real model._
+**Scenario results: 15/15 passed** on 02/11/2026 with Groq `openai/gpt-oss-120b`, in one full
+run (`uv run python scripts/run_scenarios.py --export`; 41 model calls, about 108k tokens). The language guard
+fired once, in `english-delayed-order-escalation`, and the retry passed.
+
+This is the result **measured on that day, not a guarantee**: the model's answers vary between
+runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
+fail a scenario on wording or on the provider. Earlier runs on 01/11 included 8/15 and 11/15;
+each failure was fixed in code (prices composed by the tools, active campaigns listed by the
+policy tool, the two guards, retries on 502/503), not by editing the expected text.
+
+| Scenario | What it checks |
+| --- | --- |
+| `greeting-and-store-hours` | Greeting and store hours on a Sunday before a holiday |
+| `store-address` | Store address from the policy manual |
+| `acoustic-guitars-up-to-1000` | Catalog search plus a policy question in one conversation |
+| `expired-promotion-takamine` | Product typed with a typo; an expired 12% promotion is not applied |
+| `active-promotion-no-pix-stacking` | Active promotion without the PIX discount on top |
+| `out-of-stock-alternatives` | Out-of-stock guitar with similar alternatives |
+| `empty-category-saxophone` | Category with no products |
+| `order-verified-by-phone` | Order status verified by phone written in another format |
+| `order-wrong-contact` | Order lookup with a contact that does not match |
+| `regret-within-window` | Regret right: identity check, deadline and conditions |
+| `accessories-manipulation-black-friday` | Out-of-scope request, a manipulation attempt, Black Friday |
+| `off-topic-question` | Question unrelated to the store |
+| `black-friday-not-active` | Black Friday without an active campaign: no discount or date promised |
+| `complaint-out-of-hours` | Complaint outside business hours, escalated with a real protocol |
+| `english-delayed-order-escalation` | English conversation about a delayed order, handed to a human |
+
+To rerun one scenario: `uv run python scripts/run_scenarios.py --only <id>`.
 
 ## Example conversations
 
-_To be exported from the scenario run into [`examples/`](examples/)._
+Exported unedited from the 02/11/2026 run into [`examples/`](examples/) (the header of each
+file gives the scenario, model, run date and frozen store clock):
+
+1. [`01-acoustic-guitars-under-1000.md`](examples/01-acoustic-guitars-under-1000.md): catalog
+   search and store address (data + policy).
+2. [`02-expired-promotion.md`](examples/02-expired-promotion.md): the Takamine GD20 typed with a
+   typo, whose 12% promotion has expired.
+3. [`03-regret-return.md`](examples/03-regret-return.md): regret right within the 7-day window,
+   with identity check.
+4. [`04-scope-and-manipulation.md`](examples/04-scope-and-manipulation.md): accessories, a
+   manipulation attempt and Black Friday without an active promotion.
+5. [`05-english-delayed-order.md`](examples/05-english-delayed-order.md): an English conversation
+   about a delayed order, handed to a human with a protocol.
 
 ---
 
@@ -224,7 +275,13 @@ _To be exported from the scenario run into [`examples/`](examples/)._
 - The data does not say how a purchase was made nor when it was actually received (A-10, A-11).
 - History is lost when the CLI closes; escalation protocols go only to a local log file.
 - The metropolitan region is reduced to the city of Campo Grande (A-24).
-- Free-tier rate limits can slow down the scenario run (the runner pauses between scenarios).
+- Answers vary between runs: the scenario result (15/15 on 02/11/2026) is a measurement, not a
+  guarantee. Scenarios check required and forbidden text, so a correct answer worded
+  differently can still fail.
+- Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
+  and 502/503 errors can slow it down (the runner pauses between scenarios).
+- The language guard recognizes only English and Portuguese, using common function words; a
+  very short message ("ok") keeps the model's choice.
 
 ## With more time
 
