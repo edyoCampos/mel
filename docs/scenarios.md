@@ -11,8 +11,9 @@ uv run python scripts/run_scenarios.py --only <id>               # one scenario
 uv run python scripts/run_scenarios.py --export                  # also write examples/
 ```
 
-One full run costs about 108k tokens on Groq's free tier, which fits about one run a day (see
-"Token budget" in the README).
+One full run costs about 108k tokens. Groq's free tier fits about one run a day (see "Token
+budget" in the README), so the final runs of 02/11 used DeepSeek `deepseek-flash` through the same
+adapter, changing only environment variables.
 
 ## What each scenario checks
 
@@ -36,16 +37,25 @@ One full run costs about 108k tokens on Groq's free tier, which fits about one r
 
 ## Results
 
-> **To be updated after the 03/11 run.** The fixes from the review of the examples on 02/11 and
-> the stricter checks above have not yet been through a full run.
+**Final run: DeepSeek `deepseek-flash`, 02/11/2026, final code: 13/15.** Failed:
 
-History so far (Groq `openai/gpt-oss-120b`):
+- `out-of-stock-alternatives`: Mel said the GF-3D is out of stock and offered two other Giannini
+  guitars she looked up herself, not the alternatives the tool returned (the Shelby SGD-195E at
+  R$ 799,00 was expected).
+- `order-verified-by-phone`: the right order, tracking and delay, but the estimate was written
+  "28/02" without the year (the check expects "28/02/2026").
 
-| Date | Run | Result | Notes |
-| --- | --- | --- | --- |
-| 01/11/2026 | Full runs 2 and 3 | 8/15, then 11/15 | Each failure was fixed in code (prices composed by the tools, active campaigns listed by the policy tool, the protocol guard, retries on 502/503), not by editing the expected text |
-| 02/11/2026 | Four failing scenarios, one at a time | 4/4 | The language guard was added for the English scenario |
-| 02/11/2026 | Full run with `--export` | 15/15 | 41 calls, about 108k tokens; produced the current `examples/` |
-| 02/11/2026 | After the review fixes, one at a time | 1 run, 1 pass | `regret-within-window` passed; the rest waits for the daily quota |
+Both are model behavior on a correct tool result; they were documented, not fixed.
+
+History:
+
+| Date | Provider | Run | Result | Notes |
+| --- | --- | --- | --- | --- |
+| 01/11/2026 | Groq `openai/gpt-oss-120b` | Full runs 2 and 3 | 8/15, then 11/15 | Each failure was fixed in code (prices composed by the tools, active campaigns listed by the policy tool, the protocol guard, retries on 502/503), not by editing the expected text |
+| 02/11/2026 | Groq | Four failing scenarios, one at a time | 4/4 | The language guard was added for the English scenario |
+| 02/11/2026 | Groq | Full run, morning | 15/15 | 41 calls, about 108k tokens; code before the review fixes |
+| 02/11/2026 | DeepSeek `deepseek-flash` | First full run, after the review fixes | 12/15 | Three fixes followed: two date checks were stricter than the requirement ("24/02" and "28/02" now match), and one general prompt rule (present the alternatives the tool returned, without asking first) |
+| 02/11/2026 | DeepSeek | The three scenarios, one at a time | 3/3 | Produced the current `examples/` (reviewed and approved) |
+| 02/11/2026 | DeepSeek | Final full run, no `--export` | 13/15 | See above |
 
 Results vary between runs even at temperature 0: a pass is a measurement, not a guarantee.

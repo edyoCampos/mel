@@ -48,9 +48,12 @@ The `.env` file is never copied into the image; the key is passed only at run ti
 ### Choosing the model provider
 
 It works with any provider that exposes an OpenAI-compatible API, and both providers below are
-free, so switching is only a matter of environment variables in `.env`. Gemini worked in the
-initial tool-calling test (01/11) but its free tier was slow and unstable in later runs
-(timeouts, 503); Groq is the tested and recommended provider.
+free, so switching is only a matter of environment variables in `.env`. **Groq is the
+recommended provider** because it is free for the evaluator. The example conversations and the
+final scenario runs of 02/11 used DeepSeek `deepseek-flash` (paid, a few US cents per full run,
+same adapter), because Groq's free tier fits one full run per day. Gemini is secondary evidence:
+it worked in the initial tool-calling test (01/11) but its free tier was slow and unstable in
+later runs (timeouts, 503).
 
 | | Default: Groq | Alternative: Google Gemini |
 | --- | --- | --- |
@@ -117,7 +120,9 @@ evaluator can run the project without cost, and both speak the OpenAI chat-compl
 so one adapter serves any OpenAI-compatible provider. The adapter retries HTTP 429, 502 and
 503 up to 3 times with growing waits, because free tiers rate-limit and overload. Temperature
 is 0. Gemini was the first choice, but after the initial test its free tier took about 50 s per
-call and later timed out or returned 503, so the fallback rule made Groq the default.
+call and later timed out or returned 503, so the fallback rule made Groq the default. The
+final scenario runs and the examples used DeepSeek `deepseek-flash` through the same adapter,
+because Groq's free tier fits one full run per day.
 
 **3. Interaction interface — CLI.** The challenge focuses on the agent, and `--trace` shows its
 reasoning better than a web page would.
@@ -200,16 +205,18 @@ taken for each.
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
-**Scenario results: 15/15 passed** on 02/11/2026 with Groq `openai/gpt-oss-120b`, in one full
-run (`uv run python scripts/run_scenarios.py --export`; 41 model calls, about 108k tokens).
-The language guard fired once, in `english-delayed-order-escalation`, and the retry passed.
+**Scenario results (final run): DeepSeek `deepseek-flash`, 02/11, final code: 13/15.** The two
+failures are model behavior on correct tool results: in `out-of-stock-alternatives` Mel offered
+other Giannini guitars she looked up instead of the alternatives the tool returned, and in
+`order-verified-by-phone` she wrote the delivery estimate as "28/02" without the year.
 
-> **Update pending.** A review of the exported conversations on 02/11 led to four fixes (no
-> actions without a tool, every search result listed, code-written phrases in the customer's
-> language, "PIX" written once) and to stricter scenarios. The results above predate them;
-> they will be updated after the full run of 03/11/2026, which also regenerates the examples.
+How we got there, all on 02/11: Groq `openai/gpt-oss-120b` passed 15/15 in the morning (code
+before the review fixes; 41 calls, about 108k tokens). After the review fixes, the first full run
+on DeepSeek passed 12/15; three changes followed (two date checks that were stricter than the
+requirement, and one general prompt rule: present the alternatives the tool returned, without
+asking first), and then the final run above.
 
-This is the result **measured on that day, not a guarantee**: the model's answers vary between
+These are results **measured on that day, not a guarantee**: the model's answers vary between
 runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
 fail a scenario on wording or on the provider. The 15 scenarios, what each one checks and the
 history of the runs are in [`docs/scenarios.md`](docs/scenarios.md).
@@ -217,9 +224,8 @@ history of the runs are in [`docs/scenarios.md`](docs/scenarios.md).
 ## Example conversations
 
 Exported unedited into [`examples/`](examples/) by the scenario runner; the header of each file
-gives the scenario, model, run date and frozen store clock. The current files come from the
-02/11/2026 run, before the fixes above, and will be regenerated on 03/11/2026 from the same
-code that is delivered:
+gives the scenario, model, run date and frozen store clock. They were generated on 02/11/2026
+with DeepSeek `deepseek-flash` from the delivered code and reviewed:
 
 1. [`01-acoustic-guitars-under-1000.md`](examples/01-acoustic-guitars-under-1000.md): catalog
    search and store address (data + policy).
@@ -241,8 +247,8 @@ code that is delivered:
 - The data does not say how a purchase was made nor when it was actually received (A-10, A-11).
 - History is lost when the CLI closes; escalation protocols go only to a local log file.
 - The metropolitan region is reduced to the city of Campo Grande (A-24).
-- Answers vary between runs: the scenario result (15/15 on 02/11/2026) is a measurement, not a
-  guarantee. Scenarios check required and forbidden text, so a correct answer worded
+- Answers vary between runs: the scenario result (13/15 in the final run of 02/11/2026) is a
+  measurement, not a guarantee. Scenarios check required and forbidden text, so a correct answer worded
   differently can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
   and 502/503 errors can slow it down (the runner pauses between scenarios).

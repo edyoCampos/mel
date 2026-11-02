@@ -61,7 +61,10 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-_To be filled after the 03/11 run._
+Final run: DeepSeek `deepseek-flash`, 02/11, final code: **13/15** (two model-behavior failures:
+alternatives not taken from the tool; a date without the year). Earlier: Groq 15/15 on pre-fix code,
+then DeepSeek 12/15 before three fixes. Groq stays recommended (free); examples ran on DeepSeek, as
+Groq's free tier fits one full run a day. History: [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 
