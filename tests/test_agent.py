@@ -18,7 +18,7 @@ from emporio.agent import (
     TraceEvent,
 )
 from emporio.llm import LLMError
-from emporio.services import STORE_TZ, StoreHours
+from emporio.services import CUSTOMER_LANGUAGE, STORE_TZ, StoreHours
 from emporio.tools import (
     EscalateToHumanTool,
     GetOrderStatusTool,
@@ -389,3 +389,58 @@ def test_english_product_names_in_portuguese_message_do_not_trigger_guard(
     assert agent.reply(message) == "Tenho sim! Esse modelo está disponível para você."
     assert len(llm.requests) == 1
     assert "language_guard" not in [e.kind for e in recorder.events]
+
+
+# ---------- Customer language for code-written phrases (AS-84) ----------
+
+
+class LanguageProbeTool(Tool):
+    name = "probe"
+    description = "Report the customer language seen by tools."
+    args_model = PingArgs
+
+    def run(self, args: BaseModel) -> dict[str, Any]:
+        return {"language": CUSTOMER_LANGUAGE.get()}
+
+
+@pytest.fixture
+def build_probe(make_context: Callable[..., ToolContext]) -> Callable[..., Agent]:
+    def make(llm: FakeLLM) -> Agent:
+        registry = ToolRegistry([LanguageProbeTool(make_context())])
+        return Agent(llm, registry, TEMPLATE, lambda: SUNDAY, StoreHours())
+
+    return make
+
+
+def test_english_message_sets_tool_language_and_prompt(build_probe: Any) -> None:
+    llm = FakeLLM([tool_calls(call("probe", "{}")), text("We open on Tuesday.")])
+    agent = build_probe(llm)
+    agent.reply("Hi! When are you open? Is the store open today?")
+    assert '"language": "en"' in (llm.requests[1][0][-1].content or "")
+    assert "Next opening: Tuesday, 03/11/2026, at 09:00" in sent_system(llm)
+    assert CUSTOMER_LANGUAGE.get() == "pt"  # reset after the turn
+
+
+def test_ambiguous_message_keeps_previous_language(build_probe: Any) -> None:
+    llm = FakeLLM([text("Hello!"), tool_calls(call("probe", "{}")), text("Sure, here it is.")])
+    agent = build_probe(llm)
+    agent.reply("Hi, can you help me with my order?")
+    agent.reply("ok")
+    assert '"language": "en"' in (llm.requests[2][0][-1].content or "")
+
+
+def test_portuguese_is_the_default_language(build_probe: Any) -> None:
+    llm = FakeLLM([tool_calls(call("probe", "{}")), text("Abrimos terça.")])
+    agent = build_probe(llm)
+    agent.reply("ok")
+    assert '"language": "pt"' in (llm.requests[1][0][-1].content or "")
+    assert "Next opening: terça-feira, 03/11/2026, às 09:00" in sent_system(llm)
+
+
+def test_reset_restores_portuguese(build_probe: Any) -> None:
+    llm = FakeLLM([text("Hello!"), tool_calls(call("probe", "{}")), text("Oi!")])
+    agent = build_probe(llm)
+    agent.reply("Hi, can you help me with my order?")
+    agent.reset()
+    agent.reply("ok")
+    assert '"language": "pt"' in (llm.requests[2][0][-1].content or "")
