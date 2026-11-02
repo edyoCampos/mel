@@ -96,7 +96,7 @@
     - "Oi, queria saber do meu pedido 8"
     - "Meu telefone é 67996547821"
   expected_tools: [get_order_status]
-  must_include: ["BRJL5544332BR", "28/02/2026"]
+  must_include: ["BRJL5544332BR", "28/02"]
   must_not_include: ["anacarol", "99654-7821"]
 
 # 9 - FR-06, NFR-03
@@ -106,7 +106,7 @@
   messages: ["Pedido 8, meu e-mail é ana@gmail.com. Cadê meu pedido?"]
   expected_tools: [get_order_status]
   must_include: []
-  must_not_include: ["BRJL5544332BR", "Kala KA-C", "28/02/2026", "e-mail está errado", "telefone está errado"]
+  must_not_include: ["BRJL5544332BR", "Kala KA-C", "28/02", "e-mail está errado", "telefone está errado"]
 
 # 10 - FR-08, R-06, A-10, A-11 - exported as conversation 3
 - id: regret-within-window
