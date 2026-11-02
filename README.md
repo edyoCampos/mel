@@ -47,10 +47,8 @@ The `.env` file is never copied into the image; the key is passed only at run ti
 
 ### Choosing the model provider
 
-It works with any provider that exposes an OpenAI-compatible API; it was tested with Groq and
-Gemini. Both are free, so switching is only a matter of environment variables in `.env`.
-**Groq is the recommended provider:** Gemini works, but on its free tier each call took about
-50 s (and sometimes timed out) during our tests.
+It works with any provider that exposes an OpenAI-compatible API, and both providers below are
+free, so switching is only a matter of environment variables in `.env`. Gemini worked in the initial tool-calling test (01/11) but its free tier was slow and unstable in later runs (timeouts, 503); Groq is the tested and recommended provider.
 
 | | Default: Groq | Alternative: Google Gemini |
 | --- | --- | --- |
@@ -81,24 +79,10 @@ Each turn: the agent builds the system prompt with the current date, time and st
 (open/closed, next opening), sends it with the conversation and the tool schemas, executes the
 tools the model asks for (at most 6 calls per turn), and returns the final answer.
 
-Two deterministic guards check the final answer before it reaches the customer, because the
-model ignored the matching prompt rule during the scenario runs (D-12 in
-[`DECISIONS.md`](DECISIONS.md)). Each is a regex or word check, not a second model, and costs one
-extra call only when it fires:
-
-- **Protocol guard:** an answer that mentions a protocol when `escalate_to_human` did not return
-  one (the model once invented "2026-11-00123") is retried once with an instruction to call the
-  tool; a second miss returns the store contacts instead.
-- **Language guard:** a Portuguese answer to an English message is retried once with an
-  instruction to answer in English; a second Portuguese draft is kept.
-
-| Tool | When the model uses it |
-| --- | --- |
-| `search_products` | Which instruments exist in a category, price range or with a feature |
-| `get_product_details` | Price, PIX, installments, promotion, availability, delivery and alternatives of one product |
-| `get_order_status` | Status, tracking, delay and return/warranty deadlines of an order (needs order number + e-mail or phone) |
-| `get_store_policy` | Hours, payment, returns, shipping, promotions, warranty, privacy, contact, scope |
-| `escalate_to_human` | Complaints, delayed orders, special freight quotes, privacy requests, anything it cannot answer safely |
+The five tools are `search_products`, `get_product_details`, `get_order_status`,
+`get_store_policy` and `escalate_to_human`. Two deterministic guards (protocol and language)
+check the final answer before it reaches the customer. The modules, the tool contracts, the
+turn sequence and the guards are described in [`docs/architecture.md`](docs/architecture.md).
 
 `--trace` makes the agent's decision visible — data or policy, and with which arguments:
 
@@ -107,20 +91,10 @@ extra call only when it fires:
 ← ok {"status": "found", "product": {"id": 95, "name": "Takamine GD20 Dreadnought Natural", ...} · 3 ms
 ```
 
-Code layout (`src/emporio/`, one flat package):
+## Documentation
 
-| Module | Responsibility |
-| --- | --- |
-| `money.py` | Exact BRL amounts with `Decimal`, "R$ 2.199,00" formatting |
-| `models.py` | Pydantic entities and enums (product availability, order status) |
-| `store_data.py` | Loads the 6 CSVs, normalizes specs, fuzzy product search |
-| `services.py` | Every business rule of the manual, pure and tested: pricing, installments, shipping, return windows, delays, identity check, store hours |
-| `policies.py` | The manual (converted to Markdown) retrieved by topic |
-| `tools.py` | The 5 tools, their JSON schemas and dispatch |
-| `llm.py` | Provider-independent `LLMClient` protocol + OpenAI-compatible adapter; retries HTTP 429, 502 and 503, and empty or degenerate replies |
-| `agent.py` | Tool-calling loop, session history, protocol and language guards |
-| `cli.py` | Terminal chat (`typer` + `rich`) |
-| `prompts/system.md` | Mel's system prompt |
+[`docs/`](docs/README.md) has the product requirements, the architecture and the conversation
+scenarios; [`DECISIONS.md`](DECISIONS.md) has the full decision log.
 
 ---
 
@@ -137,7 +111,7 @@ states and approvals, I would move to LangGraph.
 
 **2. Model and provider — Groq by default, Gemini as alternative.** Both are free, so the
 evaluator can run the project without cost, and both speak the OpenAI chat-completions format,
-so one adapter serves any OpenAI-compatible provider (tested with Groq and Gemini). The
+so one adapter serves any OpenAI-compatible provider. The
 adapter retries HTTP 429, 502 and 503 up to 3 times with growing waits, because free tiers
 rate-limit and overload. Temperature is 0. Gemini was the first choice and works, but on its
 free tier each call took about 50 s (some over 2 minutes or timed out) on 01/11/2026, so the
@@ -221,8 +195,8 @@ taken for each.
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
 **Scenario results: 15/15 passed** on 02/11/2026 with Groq `openai/gpt-oss-120b`, in one full
-run (`uv run python scripts/run_scenarios.py --export`; 41 model calls, about 108k tokens). The language guard
-fired once, in `english-delayed-order-escalation`, and the retry passed.
+run (`uv run python scripts/run_scenarios.py --export`; 41 model calls, about 108k tokens).
+The language guard fired once, in `english-delayed-order-escalation`, and the retry passed.
 
 > **Update pending.** A review of the exported conversations on 02/11 led to four fixes (no
 > actions without a tool, every search result listed, code-written phrases in the customer's
@@ -231,29 +205,8 @@ fired once, in `english-delayed-order-escalation`, and the retry passed.
 
 This is the result **measured on that day, not a guarantee**: the model's answers vary between
 runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
-fail a scenario on wording or on the provider. Earlier runs on 01/11 included 8/15 and 11/15;
-each failure was fixed in code (prices composed by the tools, active campaigns listed by the
-policy tool, the two guards, retries on 502/503), not by editing the expected text.
-
-| Scenario | What it checks |
-| --- | --- |
-| `greeting-and-store-hours` | Greeting and store hours on a Sunday before a holiday |
-| `store-address` | Store address from the policy manual |
-| `acoustic-guitars-up-to-1000` | Catalog search plus a policy question in one conversation |
-| `expired-promotion-takamine` | Product typed with a typo; an expired 12% promotion is not applied |
-| `active-promotion-no-pix-stacking` | Active promotion without the PIX discount on top |
-| `out-of-stock-alternatives` | Out-of-stock guitar with similar alternatives |
-| `empty-category-saxophone` | Category with no products |
-| `order-verified-by-phone` | Order status verified by phone written in another format |
-| `order-wrong-contact` | Order lookup with a contact that does not match |
-| `regret-within-window` | Regret right: identity check, deadline and conditions |
-| `accessories-manipulation-black-friday` | Out-of-scope request, a manipulation attempt, Black Friday |
-| `off-topic-question` | Question unrelated to the store |
-| `black-friday-not-active` | Black Friday without an active campaign: no discount or date promised |
-| `complaint-out-of-hours` | Complaint outside business hours, escalated with a real protocol |
-| `english-delayed-order-escalation` | English conversation about a delayed order, handed to a human |
-
-To rerun one scenario: `uv run python scripts/run_scenarios.py --only <id>`.
+fail a scenario on wording or on the provider. The 15 scenarios, what each one checks and the
+history of the runs are in [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Example conversations
 
@@ -287,8 +240,9 @@ code that is delivered:
   differently can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
   and 502/503 errors can slow it down (the runner pauses between scenarios).
-- The language guard recognizes only English and Portuguese, using common function words; a
-  very short message ("ok") keeps the model's choice.
+- Language detection recognizes only English and Portuguese, using common function words; a
+  very short message ("ok") keeps the conversation's previous language. Prices ("sem juros"),
+  delivery texts and the policy manual stay in Portuguese in English conversations.
 
 ## With more time
 
@@ -302,23 +256,21 @@ code that is delivered:
 
 ---
 
-## Use of AI coding assistants
+## How I used AI on this project
 
-<!-- TODO(Edyo): review this section so it matches your own workflow before delivery. -->
+I used AI tools throughout this challenge, and I'd rather be upfront about how than leave it to guesswork.
 
-I used **Claude Code** (Anthropic) throughout, with the [Reversa](https://www.npmjs.com/package/reversa)
-spec-driven workflow:
+I started by talking the problem through with Claude (claude.ai). We went over the challenge PDF, the policy manual and the CSVs together, and that's where most of the data issues listed in this README came from: the store phone number that changes between two sections of the manual, the PIX orders that never got their 5% discount, two customers sharing the same email. From those conversations I wrote a PRD and a decision log. I pushed back a lot at this stage. More than once I asked for the whole plan to be checked against the source files again, and a good part of it was rewritten because of that.
 
-1. **Requirements:** I wrote a first PRD, then asked Claude to audit it against the challenge PDF,
-   the manual and the CSVs. It recalculated every value from the data, found inconsistencies
-   (e.g. a discontinued product with stock, the store's time zone) and produced a revised PRD.
-   I made the decisions (provider, data in the repo, technology list, scope cuts).
-2. **Specifications:** from the PRD, Claude wrote one spec per module and per tool, the system
-   prompt spec, the scenarios, a traceability matrix and a task plan with cut-off points.
-3. **Implementation:** Claude implemented the plan task by task with TDD (a failing `test:`
-   commit, then the `feat:` commit), under rules I set: Conventional Commits, no new
-   dependencies outside an approved list, push only with the suite green.
-4. **Review:** I reviewed the specs, the tests and the code, and I can explain every file.
+Next, I used the Reversa spec-driven workflow inside Claude Code to turn the PRD into specs, a traceability matrix and a task list. Claude Code then wrote the code from those specs, test first, which is why the history alternates between `test:` and `feat:` commits. I didn't write most of the code by hand. My part was setting the rules (no new dependencies, no changes to the agreed architecture, a secrets check before every push), deciding what to do whenever something went wrong, and reviewing what came out.
+
+The review turned out to matter more than I expected. Every test was green, and the conversations still had problems. Mel offered to email a return label, which she has no way of doing, and she listed six guitars when twelve matched the question. I only caught these by reading the exported conversations, with Claude as a second reviewer. Each time, the fix went into the code instead of into a longer prompt.
+
+**What I learned**
+
+- A model will happily ignore a rule written in the prompt. The rules that actually held were the ones enforced in code.
+- Green tests don't mean good conversations. You have to read them.
+- Agents are fast at producing things. The slow and valuable part is deciding what to build and checking what came back.
 
 ---
 
