@@ -12,6 +12,7 @@ from emporio.agent import (
     FALLBACK_ERROR,
     FALLBACK_LIMIT,
     FALLBACK_NO_PROTOCOL,
+    LANGUAGE_NUDGE,
     PROTOCOL_NUDGE,
     Agent,
     TraceEvent,
@@ -321,4 +322,52 @@ def test_reply_without_protocol_is_untouched(build_esc: Any) -> None:
     llm = FakeLLM([text("Oi! Como posso ajudar?")])
     agent, _ = build_esc(llm)
     assert agent.reply("oi") == "Oi! Como posso ajudar?"
+    assert len(llm.requests) == 1
+
+
+# ---------- Language guard (AS-82) ----------
+
+
+def test_portuguese_reply_to_english_message_gets_one_retry(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            text("Oi Ana, tudo bem? Seu pedido 8 já foi enviado, mas está atrasado."),
+            text("Hi Ana! Your order 8 has shipped, but it is late."),
+        ]
+    )
+    agent, recorder = build(llm)
+    reply = agent.reply("Hi! Where is my order 8? My email is ana@example.com")
+    assert reply == "Hi Ana! Your order 8 has shipped, but it is late."
+    retry_messages = llm.requests[1][0]
+    assert retry_messages[-1].role == "system"
+    assert retry_messages[-1].content == LANGUAGE_NUDGE
+    assert all(m.content != LANGUAGE_NUDGE for m in agent.history)  # never stored
+    assert "language_guard" in [e.kind for e in recorder.events]
+
+
+def test_second_portuguese_reply_is_kept(build: Any) -> None:
+    llm = FakeLLM([text("Seu pedido já foi enviado."), text("O seu pedido está a caminho.")])
+    agent, _ = build(llm)
+    assert agent.reply("Yes, please open a ticket for me.") == "O seu pedido está a caminho."
+    assert len(llm.requests) == 2
+
+
+def test_english_reply_to_english_message_is_untouched(build: Any) -> None:
+    llm = FakeLLM([text("Your order is on the way.")])
+    agent, _ = build(llm)
+    assert agent.reply("Where is my order?") == "Your order is on the way."
+    assert len(llm.requests) == 1
+
+
+def test_portuguese_message_keeps_portuguese_reply(build: Any) -> None:
+    llm = FakeLLM([text("Seu pedido já foi enviado.")])
+    agent, _ = build(llm)
+    assert agent.reply("Cadê o meu pedido 8?") == "Seu pedido já foi enviado."
+    assert len(llm.requests) == 1
+
+
+def test_short_ambiguous_message_does_not_trigger_guard(build: Any) -> None:
+    llm = FakeLLM([text("Oi! Como posso te ajudar?")])
+    agent, _ = build(llm)
+    assert agent.reply("ok") == "Oi! Como posso te ajudar?"
     assert len(llm.requests) == 1
