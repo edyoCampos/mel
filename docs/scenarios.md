@@ -37,33 +37,26 @@ adapter, changing only environment variables.
 
 ## Results
 
-**Final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after completing the date-check
-decision (AS-87), `order-verified-by-phone` passes on its own run → 14/15; one open failure:
-`out-of-stock-alternatives`.**
+**Final full run on DeepSeek `deepseek-flash`, 02/11/2026, final code: 15/15.**
 
-- `out-of-stock-alternatives` (open): in the final run the model did not present the alternatives
-  returned by the tool and searched on its own; the transcript was not kept.
-- `order-verified-by-phone` (passes on its own run): it failed in the final run because its check
-  still required "28/02/2026", while AS-87 had already made the year optional. The check is now
-  "28/02", and `order-wrong-contact` forbids "28/02" (AS-89).
+The runner saves the full transcript of every failing scenario (messages, tool calls with their
+arguments, tool results, guard events and the calls refused by the 6-call limit) in
+`.scenario-failures/`, which Git ignores.
 
-History:
+History, every run, including the ones that failed:
 
 | Date | Provider | Run | Result | Notes |
 | --- | --- | --- | --- | --- |
 | 01/11/2026 | Groq `openai/gpt-oss-120b` | Full runs 2 and 3 | 8/15, then 11/15 | Each failure was fixed in code (prices composed by the tools, active campaigns listed by the policy tool, the protocol guard, retries on 502/503), not by editing the expected text |
 | 02/11/2026 | Groq | Four failing scenarios, one at a time | 4/4 | The language guard was added for the English scenario |
-| 02/11/2026 | Groq | Full run, morning | 15/15 | 41 calls, about 108k tokens; code before the review fixes |
-| 02/11/2026 | DeepSeek `deepseek-flash` | First full run, after the review fixes | 12/15 | Three fixes followed: date checks stricter than the requirement (AS-87: `regret-within-window` and `english-delayed-order-escalation` now check "24/02" and "28/02"; the two order scenarios were missed and completed later, AS-89), and one general prompt rule (present the alternatives the tool returned, without asking first) |
+| 02/11/2026 | Groq | Full run, morning | 15/15 | 41 calls, about 108k tokens; code before the fixes from the review of the examples |
+| 02/11/2026 | Groq | After the review fixes, one at a time | 1/1 | `regret-within-window` passed; the daily quota then ran out (HTTP 429, no tokens spent), so the next runs moved to DeepSeek |
+| 02/11/2026 | DeepSeek `deepseek-flash` | First full run, after the review fixes | 12/15 | Three fixes followed: date checks stricter than the requirement (the year is optional, so "24/02" and "28/02" are checked; applied to `regret-within-window` and `english-delayed-order-escalation`, while the two order scenarios were missed), and one general prompt rule (present the alternatives the tool returned, without asking first) |
 | 02/11/2026 | DeepSeek | The three scenarios, one at a time | 3/3 | Produced the current `examples/` (reviewed and approved) |
-| 02/11/2026 | DeepSeek | Final full run, no `--export` | 13/15 | See above |
-| 02/11/2026 | DeepSeek | `order-verified-by-phone` alone, after AS-89 | 1/1 | Result: 14/15 |
+| 02/11/2026 | DeepSeek | Full run, no `--export` | 13/15 | `out-of-stock-alternatives`: the model did not present the alternatives returned by the tool and searched on its own; the transcript was not kept. `order-verified-by-phone`: its check still required "28/02/2026"; it now checks "28/02", and `order-wrong-contact` forbids "28/02" |
+| 02/11/2026 | DeepSeek | `order-verified-by-phone` alone | 1/1 | |
+| 02/11/2026 | DeepSeek | Full run with the alternatives guard and the failure transcripts | 14/15 | `out-of-stock-alternatives`: the transcript showed a bug in the product name lookup. "violão Giannini GF-3D" came back as ambiguous (the word "violão" lowered the score below the threshold), the model looked up every candidate and hit the 6-call limit, so the alternatives guard never ran. Fix: the lookup drops words that only name the category, and a model code found in one product name ("gf3d") resolves to that product |
+| 02/11/2026 | DeepSeek | `out-of-stock-alternatives` alone | 1/1 | One `get_product_details` call |
+| 02/11/2026 | DeepSeek | Final full run, no `--export`, final code | **15/15** | |
 
 Results vary between runs even at temperature 0: a pass is a measurement, not a guarantee.
-
-## With more time
-
-- A guard in the `Agent` for unavailable products, following the D-12 pattern: when
-  `get_product_details` returns alternatives and the answer names none of them, retry once.
-- The runner saving the transcript of every failing scenario, so failures can be reviewed after
-  the run.

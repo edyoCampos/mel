@@ -85,8 +85,8 @@ Each turn: the agent builds the system prompt with the current date, time and st
 tools the model asks for (at most 6 calls per turn), and returns the final answer.
 
 The five tools are `search_products`, `get_product_details`, `get_order_status`,
-`get_store_policy` and `escalate_to_human`. Two deterministic guards (protocol and language)
-check the final answer before it reaches the customer. The modules, the tool contracts, the
+`get_store_policy` and `escalate_to_human`. Three deterministic guards (protocol, language and
+alternatives) check the final answer before it reaches the customer. The modules, the tool contracts, the
 turn sequence and the guards are described in [`docs/architecture.md`](docs/architecture.md).
 
 `--trace` makes the agent's decision visible — data or policy, and with which arguments:
@@ -200,24 +200,21 @@ taken for each.
 | --- | --- | --- |
 | Unit | Money, every rule of the manual (installments, PIX × promotion, shipping, return windows, delays, identity, store hours with holidays) | Yes |
 | Integration | CSV loading, the 5 tools end to end, the manual's 10 sections | Yes |
-| Agent loop | Scripted `FakeLLM`: tool → answer, invalid arguments, 6-call limit, LLM errors, protocol and language guards (including English product names in Portuguese messages) | Yes |
+| Agent loop | Scripted `FakeLLM`: tool → answer, invalid arguments, 6-call limit, LLM errors, protocol, language and alternatives guards (including English product names in Portuguese messages) | Yes |
 | Scenarios | 15 real conversations checking tools called and required/forbidden text (`tests/scenarios.yaml`) | No (needs an API key) |
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
-**Scenario results: final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after
-completing the date-check decision (AS-87), `order-verified-by-phone` passes on its own run →
-14/15; one open failure: `out-of-stock-alternatives`.** In the final run the model did not present
-the alternatives returned by the tool and searched on its own; the transcript was not kept.
-`order-verified-by-phone` had failed only because its check still required the year ("28/02/2026")
-after AS-87 had made the year optional in the other date checks.
+**Scenario results: final full run on DeepSeek `deepseek-flash`, 02/11, final code: 15/15.**
 
 How we got there, all on 02/11: Groq `openai/gpt-oss-120b` passed 15/15 in the morning (code
-before the review fixes; 41 calls, about 108k tokens). After the review fixes, the first full run
-on DeepSeek passed 12/15; three changes followed (date checks that were stricter than the
-requirement, AS-87, and one general prompt rule: present the alternatives the tool returned,
-without asking first), and then the final run above. AS-87 had missed two order scenarios; they
-were completed afterwards (AS-89).
+before the review fixes; 41 calls, about 108k tokens). After the review fixes, the full runs on
+DeepSeek gave 12/15, 13/15 and 14/15. Each failure was fixed in code or in a check that was
+stricter than the requirement: date checks now accept the date without the
+year; a guard makes Mel present the alternatives the tool returned for an unavailable product;
+and the product name lookup ignores category words ("violão Giannini GF-3D" had come back as
+ambiguous). The runner now saves the transcript of every failing scenario, which is how the
+lookup bug was found. Every run is in the history table of [`docs/scenarios.md`](docs/scenarios.md).
 
 These are results **measured on that day, not a guarantee**: the model's answers vary between
 runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
@@ -228,7 +225,9 @@ history of the runs are in [`docs/scenarios.md`](docs/scenarios.md).
 
 Exported unedited into [`examples/`](examples/) by the scenario runner; the header of each file
 gives the scenario, model, run date and frozen store clock. They were generated on 02/11/2026
-with DeepSeek `deepseek-flash` from the delivered code and reviewed:
+with DeepSeek `deepseek-flash` and reviewed, before the last fixes (the alternatives guard and the
+name lookup); the final code passed the same five scenarios in the final run, without
+re-exporting them:
 
 1. [`01-acoustic-guitars-under-1000.md`](examples/01-acoustic-guitars-under-1000.md): catalog
    search and store address (data + policy).
@@ -250,9 +249,9 @@ with DeepSeek `deepseek-flash` from the delivered code and reviewed:
 - The data does not say how a purchase was made nor when it was actually received (A-10, A-11).
 - History is lost when the CLI closes; escalation protocols go only to a local log file.
 - The metropolitan region is reduced to the city of Campo Grande (A-24).
-- Answers vary between runs: the scenario result (14/15 on 02/11/2026) is a
-  measurement, not a guarantee. Scenarios check required and forbidden text, so a correct answer worded
-  differently can still fail.
+- Answers vary between runs: the scenario result (15/15 on 02/11/2026) is a measurement, not a
+  guarantee. Scenarios check required and forbidden text, so a correct answer worded differently
+  can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
   and 502/503 errors can slow it down (the runner pauses between scenarios).
 - Language detection recognizes only English and Portuguese, using common function words; a
@@ -266,10 +265,6 @@ with DeepSeek `deepseek-flash` from the delivered code and reviewed:
 - An LLM judge for tone; property-based tests for the pricing rules; `mypy --strict`.
 - A WhatsApp webhook and a small web UI.
 - Hybrid search for the manual if it grows.
-- A guard in the `Agent` for unavailable products, following the D-12 pattern: when
-  `get_product_details` returns alternatives and the answer names none of them, retry once.
-- The scenario runner saving the transcript of every failing scenario, so failures can be
-  reviewed after the run.
 - Fewer input tokens per call: a leaner prompt, compact tool schemas, and prompt caching where
   the provider offers it.
 

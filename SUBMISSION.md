@@ -25,8 +25,8 @@ store-hours phrase is computed by tested code and reaches the model already form
 
 ## How it works
 
-A small function-calling loop with five typed tools over the store's CSV data and manual. Two
-deterministic guards (protocol and language) check each final answer. Details:
+A small function-calling loop with five typed tools over the store's CSV data and manual. Three
+deterministic guards (protocol, language and alternatives) check each final answer. Details:
 [`docs/architecture.md`](docs/architecture.md).
 
 ## How to run
@@ -61,12 +61,13 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-Final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after completing the date-check
-decision (AS-87), `order-verified-by-phone` passes on its own run → **14/15**; one open failure:
-`out-of-stock-alternatives` (in the final run the model did not present the alternatives returned
-by the tool and searched on its own; the transcript was not kept). Earlier: Groq 15/15 on pre-fix
-code, then DeepSeek 12/15 before three fixes. Groq stays recommended (free); examples ran on
-DeepSeek, as Groq's free tier fits one full run a day. History: [`docs/scenarios.md`](docs/scenarios.md).
+Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **15/15**. Earlier the same day:
+Groq 15/15 on the code before the review fixes, then DeepSeek 12/15, 13/15 and 14/15; each
+failure was fixed in code (an alternatives guard, a product name lookup that ignores category
+words) or in a check stricter than the requirement (dates without the year). The runner saves
+the transcript of every failing scenario. Groq stays recommended (free); the final runs used
+DeepSeek, as Groq's free tier fits one full run a day. Every run:
+[`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 

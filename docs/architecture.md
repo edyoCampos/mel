@@ -18,7 +18,7 @@ One flat package, `src/emporio/`:
 | `policies.py` | The manual (converted to Markdown) retrieved by topic |
 | `tools.py` | The 5 tools, their JSON schemas and dispatch |
 | `llm.py` | Provider-independent `LLMClient` protocol + OpenAI-compatible adapter |
-| `agent.py` | Tool-calling loop, session history, protocol and language guards |
+| `agent.py` | Tool-calling loop, session history, protocol, language and alternatives guards |
 | `cli.py` | Terminal chat (`typer` + `rich`) |
 | `prompts/system.md` | Mel's system prompt |
 
@@ -53,7 +53,7 @@ sequenceDiagram
             T-->>A: JSON result (formatted amounts)
         end
     end
-    A->>A: protocol guard, language guard
+    A->>A: protocol, language and alternatives guards
     A->>A: plain hyphens and spaces
     A-->>C: answer
 ```
@@ -69,7 +69,7 @@ invisible characters) within the same attempts.
 
 ## Guards
 
-Two deterministic checks run on the final answer, because the model ignored the matching prompt
+Three deterministic checks run on the final answer, because the model ignored the matching prompt
 rule during the scenario runs. Each is a regex or word check, not a second model, and costs one
 extra call only when it fires. The retry instruction is sent to the model but never stored in the
 history.
@@ -79,6 +79,10 @@ history.
   instruction to call the tool. A second miss returns the store contacts instead.
 - **Language guard:** a Portuguese answer to an English conversation is retried once with an
   instruction to answer in English. A second Portuguese draft is kept, since it is still correct.
+- **Alternatives guard:** when `get_product_details` returned an unavailable product with
+  alternatives in the turn and the answer names none of them (brand and model, such as "Shelby
+  SGD-195E"), the answer is retried once with an instruction to present them. A second miss is
+  kept.
 
 ## Customer language
 
