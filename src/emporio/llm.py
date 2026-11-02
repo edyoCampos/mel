@@ -145,6 +145,9 @@ class OpenAICompatibleClient:
                     raise LLMError(f"rate limited by provider after {attempts} attempts") from None
                 wait = self._settings.backoff_base_seconds * 2 ** (attempt - 1)
                 hinted = _retry_after(exc)
+                if hinted is not None and hinted > RETRY_AFTER_CAP_SECONDS:
+                    # e.g. a daily token quota; waiting the cap cannot help (AS-75)
+                    raise LLMError(f"rate limited by provider; retry in {hinted:.0f} s") from None
                 if hinted is not None:
                     wait = min(max(wait, hinted), RETRY_AFTER_CAP_SECONDS)
                 self._sleep(wait)
