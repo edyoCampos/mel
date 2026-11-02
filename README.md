@@ -48,7 +48,9 @@ The `.env` file is never copied into the image; the key is passed only at run ti
 ### Choosing the model provider
 
 It works with any provider that exposes an OpenAI-compatible API, and both providers below are
-free, so switching is only a matter of environment variables in `.env`. Gemini worked in the initial tool-calling test (01/11) but its free tier was slow and unstable in later runs (timeouts, 503); Groq is the tested and recommended provider.
+free, so switching is only a matter of environment variables in `.env`. Gemini worked in the
+initial tool-calling test (01/11) but its free tier was slow and unstable in later runs
+(timeouts, 503); Groq is the tested and recommended provider.
 
 | | Default: Groq | Alternative: Google Gemini |
 | --- | --- | --- |
@@ -111,11 +113,10 @@ states and approvals, I would move to LangGraph.
 
 **2. Model and provider — Groq by default, Gemini as alternative.** Both are free, so the
 evaluator can run the project without cost, and both speak the OpenAI chat-completions format,
-so one adapter serves any OpenAI-compatible provider. The
-adapter retries HTTP 429, 502 and 503 up to 3 times with growing waits, because free tiers
-rate-limit and overload. Temperature is 0. Gemini was the first choice and works, but on its
-free tier each call took about 50 s (some over 2 minutes or timed out) on 01/11/2026, so the
-fallback rule made Groq the default.
+so one adapter serves any OpenAI-compatible provider. The adapter retries HTTP 429, 502 and
+503 up to 3 times with growing waits, because free tiers rate-limit and overload. Temperature
+is 0. Gemini was the first choice, but after the initial test its free tier took about 50 s per
+call and later timed out or returned 503, so the fallback rule made Groq the default.
 
 **3. Retrieval — structured retrieval by topic, not a vector store.** The manual has 8 pages
 and 10 sections, so each policy topic maps to fixed sections; embeddings would only add
