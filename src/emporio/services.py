@@ -302,6 +302,20 @@ _SCHEDULE: dict[int, tuple[time, time]] = {
     5: (time(9), time(13)),
 }
 _WEEKDAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+WEEKDAYS_PT = [
+    "segunda-feira",
+    "terça-feira",
+    "quarta-feira",
+    "quinta-feira",
+    "sexta-feira",
+    "sábado",
+    "domingo",
+]
+
+
+def describe_opening_pt(opening: datetime) -> str:
+    """'segunda-feira, 09/11/2026, às 09:00': ready to copy for the customer (AS-80)."""
+    return f"{WEEKDAYS_PT[opening.weekday()]}, {opening:%d/%m/%Y}, às {opening:%H:%M}"
 
 
 @dataclass(frozen=True)
@@ -372,10 +386,7 @@ class StoreHours:
             return f"{head} Store is OPEN until {status.closes_at:%H:%M}."
         assert status.next_opening is not None
         opening = status.next_opening
-        line = (
-            f"{head} Store is CLOSED. Next opening: "
-            f"{_WEEKDAYS[opening.weekday()]}, {opening:%d/%m/%Y} at {opening:%H:%M}"
-        )
+        line = f"{head} Store is CLOSED. Next opening: {describe_opening_pt(opening)}"
         skipped = []
         day = local.date() + timedelta(days=1)
         while day < opening.date():

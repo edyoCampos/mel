@@ -29,6 +29,20 @@ FALLBACK_LIMIT = (
     "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
 )
 EMPTY_MESSAGE_REPLY = "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?"
+# Protocol guard (D-12 exception, AS-80): a protocol exists only when escalate_to_human
+# returned it. A reply that mentions one without that gets one retry with this instruction
+# (sent, never stored in the history); a second miss returns the store contacts.
+PROTOCOL_NUDGE = (
+    "Your last draft mentioned a protocol, but escalate_to_human was not called and no "
+    "protocol exists. Call escalate_to_human now if the case needs a human; otherwise answer "
+    "without mentioning any protocol."
+)
+FALLBACK_NO_PROTOCOL = (
+    "Sinto muito por isso. Para registrar o seu caso com a nossa equipe, fale com a gente "
+    "pelo WhatsApp (67) 3341-4444 ou pelo e-mail contato@emporiodamusica.com.br."
+)
+_PROTOCOL_WORD = re.compile(r"protocol", re.IGNORECASE)
+_PROTOCOL_CODE = re.compile(r"EM-\d{8}-\d{4}")
 
 
 def load_system_prompt_template() -> str:
@@ -42,7 +56,7 @@ _SUMMARY_LIMIT = 160
 
 @dataclass(frozen=True)
 class TraceEvent:
-    kind: str  # "tool_call" | "tool_result" | "llm_error" | "limit_reached"
+    kind: str  # "tool_call" | "tool_result" | "llm_error" | "limit_reached" | "protocol_guard"
     name: str | None
     arguments: dict[str, Any] | None  # contacts masked (NFR-03)
     summary: str
@@ -96,6 +110,7 @@ class Agent:
         self._store_hours = store_hours
         self._tracer = tracer
         self._history: list[Message] = []
+        self._protocols: set[str] = set()  # returned by escalate_to_human (AS-80)
 
     @property
     def history(self) -> list[Message]:
@@ -103,6 +118,14 @@ class Agent:
 
     def reset(self) -> None:
         self._history.clear()
+        self._protocols.clear()
+
+    def _invents_protocol(self, content: str) -> bool:
+        if not _PROTOCOL_WORD.search(content):
+            return False
+        if not self._protocols:
+            return True
+        return any(code not in self._protocols for code in _PROTOCOL_CODE.findall(content))
 
     def _emit(self, event: TraceEvent) -> None:
         if self._tracer is not None:
@@ -122,17 +145,33 @@ class Agent:
             return EMPTY_MESSAGE_REPLY
         self._history.append(Message(role="user", content=user_message.strip()))
         calls_done = 0
+        nudged = False
+        protocols_before = len(self._protocols)
         schemas = self._registry.schemas()
         while True:
             started = time.monotonic()
+            extra = []
+            if nudged and len(self._protocols) == protocols_before:
+                extra = [Message(role="system", content=PROTOCOL_NUDGE)]
             try:
-                response = self._llm.complete([self._system_prompt(), *self._history], schemas)
+                response = self._llm.complete(
+                    [self._system_prompt(), *self._history, *extra], schemas
+                )
             except LLMError as exc:
                 elapsed = int((time.monotonic() - started) * 1000)
                 self._emit(TraceEvent("llm_error", None, None, str(exc)[:_SUMMARY_LIMIT], elapsed))
                 return self._finish(FALLBACK_ERROR)
             if not response.tool_calls:
-                return self._finish(response.content or "")
+                content = response.content or ""
+                if self._invents_protocol(content):
+                    self._emit(
+                        TraceEvent("protocol_guard", None, None, content[:_SUMMARY_LIMIT], 0)
+                    )
+                    if nudged:
+                        return self._finish(FALLBACK_NO_PROTOCOL)
+                    nudged = True
+                    continue
+                return self._finish(content)
             if calls_done + len(response.tool_calls) > self.MAX_TOOL_CALLS_PER_TURN:
                 self._emit(TraceEvent("limit_reached", None, None, f"{calls_done} tool calls", 0))
                 return self._finish(FALLBACK_LIMIT)
@@ -147,6 +186,8 @@ class Agent:
                 result = self._registry.dispatch(tool_call.name, tool_call.arguments)
                 elapsed = int((time.monotonic() - started) * 1000)
                 payload = result.to_json()
+                if tool_call.name == "escalate_to_human" and result.ok:
+                    self._protocols.add(str(result.payload.get("protocol")))
                 status = "ok" if result.ok else f"error:{result.payload.get('error')}"
                 self._emit(
                     TraceEvent(

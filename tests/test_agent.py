@@ -107,7 +107,7 @@ def test_system_prompt_has_time_and_store_status(build: Any) -> None:
     system = sent_system(llm)
     assert "Sunday, 01/11/2026 10:00" in system
     assert "CLOSED" in system
-    assert "Tuesday, 03/11/2026 at 09:00" in system
+    assert "terça-feira, 03/11/2026, às 09:00" in system
 
 
 def test_system_prompt_is_rebuilt_each_turn(build: Any) -> None:

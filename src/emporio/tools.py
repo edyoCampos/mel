@@ -30,6 +30,7 @@ from emporio.services import (
     ShippingRules,
     StoreHours,
     Window,
+    describe_opening_pt,
     mask_email,
     mask_phone,
 )
@@ -637,15 +638,6 @@ STORE_CONTACTS = {
     "address": "Rua 14 de Maio, 3200 — Centro, Campo Grande/MS, CEP 79202-333",
 }
 RESPONSE_TIME = "até 24 horas úteis"  # policy 7.3
-_WEEKDAYS_PT = [
-    "segunda-feira",
-    "terça-feira",
-    "quarta-feira",
-    "quinta-feira",
-    "sexta-feira",
-    "sábado",
-    "domingo",
-]
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 _PHONE = re.compile(r"\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}")
 _hours = StoreHours()
@@ -705,9 +697,7 @@ class EscalateToHumanTool(Tool):
         note = None
         if not status.is_open and status.next_opening is not None:
             opening = status.next_opening
-            next_opening = (
-                f"{_WEEKDAYS_PT[opening.weekday()]}, {opening:%d/%m/%Y}, às {opening:%H:%M}"
-            )
+            next_opening = describe_opening_pt(opening)
             note = (
                 "Store is closed now: tell the customer the team replies from the next "
                 "opening (R-15)."
