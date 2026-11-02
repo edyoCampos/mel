@@ -1,0 +1,20 @@
+# Secrets never enter the image (NFR-13)
+.env
+.env.*
+!.env.example
+
+# Not needed at runtime
+.git/
+.github/
+.venv/
+logs/
+*.pdf
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.reversa/
+.claude/
+.agents/
+_reversa_*/
+Desafio*/

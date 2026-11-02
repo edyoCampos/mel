@@ -1,4 +1,4 @@
-.PHONY: setup lint format test chat chat-trace scenarios
+.PHONY: setup lint format test chat chat-trace scenarios docker-build docker-chat
 
 setup:
 	uv sync
@@ -22,3 +22,9 @@ chat-trace:
 
 scenarios:
 	uv run python scripts/run_scenarios.py
+
+docker-build:
+	docker build -t mel .
+
+docker-chat: docker-build
+	docker run -it --rm --env-file .env mel

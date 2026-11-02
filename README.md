@@ -35,6 +35,16 @@ make test                                                  # unit and integratio
 make scenarios                                             # conversation scenarios, real LLM
 ```
 
+Without Python, with [Docker](https://docs.docker.com/get-docker/) only:
+
+```bash
+cp .env.example .env       # put your API key in .env (values without quotes)
+make docker-chat           # docker build -t mel . && docker run -it --rm --env-file .env mel
+docker run --rm mel pytest -q                              # offline test suite inside the image
+```
+
+The `.env` file is never copied into the image; the key is passed only at run time.
+
 ### Choosing the model provider
 
 Both providers are free and expose an OpenAI-compatible API, so switching is only a matter of
