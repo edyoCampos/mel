@@ -20,3 +20,6 @@ __pycache__/
 dist/
 build/
 *.egg-info/
+
+# Transcripts of failing scenarios (scripts/run_scenarios.py)
+.scenario-failures/

@@ -23,7 +23,7 @@ import yaml
 from dotenv import load_dotenv
 
 from emporio.agent import Agent, TraceEvent, load_system_prompt_template
-from emporio.llm import LLMClient, LLMSettings, OpenAICompatibleClient
+from emporio.llm import LLMClient, LLMSettings, Message, OpenAICompatibleClient
 from emporio.policies import PolicyBook
 from emporio.services import STORE_TZ, StoreHours
 from emporio.store_data import StoreData
@@ -31,6 +31,7 @@ from emporio.tools import ToolContext, ToolRegistry
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_FILE = ROOT / "tests" / "scenarios.yaml"
+FAILURES_DIR = ROOT / ".scenario-failures"  # transcripts of failing scenarios, not versioned
 DEFAULT_PAUSE = 5.0  # AS-38: stay under free-tier rate limits
 
 
@@ -76,13 +77,17 @@ class ScenarioResult:
     turns: list[tuple[str, str, list[str]]]  # (customer, mel, tools called in that turn)
     tools_called: list[str]
     elapsed_seconds: float
+    history: list[Message] = field(default_factory=list)  # with tool calls and results
+    events: list[TraceEvent] = field(default_factory=list)
 
 
 class _Recorder:
     def __init__(self) -> None:
         self.calls: list[str] = []
+        self.events: list[TraceEvent] = []
 
     def emit(self, event: TraceEvent) -> None:
+        self.events.append(event)
         if event.kind == "tool_call" and event.name:
             self.calls.append(event.name)
 
@@ -154,6 +159,8 @@ def run_scenario(
         turns=turns,
         tools_called=recorder.calls,
         elapsed_seconds=time.monotonic() - started,
+        history=agent.history,
+        events=recorder.events,
     )
 
 
@@ -194,6 +201,44 @@ def export(
     return path
 
 
+_GUARD_EVENTS = {"protocol_guard", "language_guard", "alternatives_guard", "llm_error"}
+
+
+def save_failure(
+    result: ScenarioResult, scenario: Scenario, directory: Path, model: str, stamp: str
+) -> Path:
+    """Write the full transcript of a failing scenario (messages, tool calls and results)."""
+    directory.mkdir(parents=True, exist_ok=True)
+    path = directory / f"{stamp}-{scenario.id}.md"
+    lines = [
+        f"# FAIL {scenario.id}: {scenario.title}",
+        "",
+        f"Model `{model}` · run {stamp} · store clock {scenario.now.isoformat()}",
+        "",
+        "## Failed checks",
+        "",
+        *[f"- {failure}" for failure in result.failures],
+        "",
+        "## Guards and errors (drafts truncated)",
+        "",
+        *[f"- {e.kind}: {e.summary}" for e in result.events if e.kind in _GUARD_EVENTS],
+        "",
+        "## Transcript",
+        "",
+    ]
+    for message in result.history:
+        lines.append(f"### {message.role}")
+        lines.append("")
+        if message.content:
+            lines += [message.content, ""]
+        for tool_call in message.tool_calls:
+            lines += [f"- call `{tool_call.name}` {tool_call.arguments}"]
+        if message.tool_calls:
+            lines.append("")
+    path.write_text("\n".join(lines), encoding="utf-8")
+    return path
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0] if __doc__ else None)
     parser.add_argument("--file", type=Path, default=DEFAULT_FILE)
@@ -216,6 +261,7 @@ def main(argv: list[str] | None = None) -> int:
     workdir = ROOT / "logs" / "scenarios"
     workdir.mkdir(parents=True, exist_ok=True)
     items = select(load_scenarios(args.file), args.only, args.include_v3)
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
 
     def run_one(item: Scenario) -> ScenarioResult:
         result = run_scenario(item, llm, data, policies, workdir)
@@ -226,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
         if not result.passed:
             for customer, mel, _ in result.turns:
                 print(f"     > {customer}\n     < {mel}")
+            saved = save_failure(result, item, FAILURES_DIR, settings.model, stamp)
+            print(f"     transcript {saved.relative_to(ROOT)}")
         if args.export and item.export_as and result.passed:
             path = export(result, item, ROOT, settings.model, date.today().strftime("%d/%m/%Y"))
             print(f"     exported {path.relative_to(ROOT)}")
