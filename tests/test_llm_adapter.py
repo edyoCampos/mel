@@ -204,3 +204,60 @@ def test_env_example_lists_both_providers() -> None:
     assert "LLM_BASE_URL=https://api.groq.com/openai/v1" in active
     assert "# LLM_MODEL=gemini-3.8-flash" in text
     assert "# LLM_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai/" in text
+
+
+# ---------- 502/503 like 429; empty or degenerate replies (AS-81) ----------
+
+
+@pytest.mark.parametrize("status", [502, 503])
+def test_retries_on_bad_gateway_and_unavailable(status: int) -> None:
+    error = http_error(openai.InternalServerError, status)
+    client, stub, sleeps = make_client([error, error, completion("finally")])
+    assert client.complete([Message(role="user", content="oi")]).content == "finally"
+    assert len(stub.calls) == 3
+    assert sleeps == [1.0, 2.0]
+
+
+def test_gives_up_on_503_after_three_attempts() -> None:
+    error = http_error(openai.InternalServerError, 503)
+    client, stub, _ = make_client([error, error, error])
+    with pytest.raises(LLMError, match="HTTP 503 after 3 attempts"):
+        client.complete([Message(role="user", content="oi")])
+    assert len(stub.calls) == 3
+
+
+def test_empty_reply_is_retried_then_fails_explicitly() -> None:
+    client, stub, _ = make_client([completion(""), completion("  \n "), completion(None)])
+    with pytest.raises(LLMError, match="empty or degenerate"):
+        client.complete([Message(role="user", content="oi")])
+    assert len(stub.calls) == 3
+
+
+DEGENERATE = "Oi **\u200b**\u200b \u200b  \u200b\n\n\n\nOops!\n\n ... \n\n…\n\n ... \n …" * 3
+
+
+def test_degenerate_reply_is_retried() -> None:
+    client, stub, _ = make_client([completion(DEGENERATE), completion("Oi! Tudo bem?")])
+    assert client.complete([Message(role="user", content="oi")]).content == "Oi! Tudo bem?"
+    assert len(stub.calls) == 2
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Oi! 😊",
+        "**R$ 439,20**",
+        "- Tagima Memphis AC-39 Nylon – R$ 429,90 – PIX R$ 408,41\n- Tagima TW-7 – R$ 999,00",
+        "Protocolo **EM-20261101-0001** · até 24 horas úteis.",
+    ],
+)
+def test_normal_replies_are_not_degenerate(reply: str) -> None:
+    client, stub, _ = make_client([completion(reply)])
+    assert client.complete([Message(role="user", content="oi")]).content == reply
+    assert len(stub.calls) == 1
+
+
+def test_tool_call_without_text_is_not_empty() -> None:
+    client, stub, _ = make_client([completion(None, calls=[("c1", "ping", "{}")])])
+    assert client.complete([Message(role="user", content="oi")]).tool_calls
+    assert len(stub.calls) == 1
