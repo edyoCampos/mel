@@ -119,6 +119,34 @@ def test_ambiguous_query_returns_candidates(details: Any) -> None:
     assert all("Takamine" in c["name"] for c in candidates)
 
 
+@pytest.mark.parametrize(
+    ("query", "product_id"),
+    [
+        ("violão Giannini GF-3D", 96),
+        ("violão Takamine GD20", 95),
+        ("violão Yamaha C40", 81),
+        ("takamine gd 20", 95),
+    ],
+)
+def test_query_with_category_word_or_model_code_is_found(
+    details: Any, query: str, product_id: int
+) -> None:
+    result = details({"query": query})
+    assert result.payload["status"] == "found"
+    assert result.payload["product"]["id"] == product_id
+
+
+def test_category_word_is_ignored_without_a_model_code(details: Any) -> None:
+    result = details({"query": "violão takamine gd 20"})  # "gd 20" is not one code token
+    assert result.payload["status"] == "found"
+    assert result.payload["product"]["id"] == 95
+
+
+def test_category_word_does_not_resolve_an_ambiguous_brand(details: Any) -> None:
+    result = details({"query": "violão takamine"})
+    assert result.payload["status"] == "ambiguous"
+
+
 def test_unknown_query_not_found(details: Any) -> None:
     result = details({"query": "violino stradivarius"})
     assert result.payload["status"] == "not_found"

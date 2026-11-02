@@ -187,6 +187,20 @@ def test_match_product_name_ambiguous(data: StoreData) -> None:
     assert matches[0].score - matches[1].score < 5
 
 
+def test_model_code_in_one_name_is_the_only_match(data: StoreData) -> None:
+    matches = data.match_product_name("Yamaha GF-3D")  # code beats the brand
+    assert [m.product.id for m in matches] == [96]
+
+
+def test_model_code_in_several_names_keeps_fuzzy_matching(data: StoreData) -> None:
+    matches = data.match_product_name("gd20 c40", limit=3)  # two codes, two products
+    assert len(matches) == 3
+
+
+def test_query_made_only_of_category_words_is_kept(data: StoreData) -> None:
+    assert data.match_product_name("violão")  # nothing left to strip it down to
+
+
 def test_order_registered_total_is_kept(data: StoreData) -> None:
     order = data.get_order(3)
     assert order is not None
