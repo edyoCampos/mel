@@ -237,3 +237,13 @@ def test_text_search_kala_does_not_bring_kalani(data: StoreData) -> None:
 def test_text_search_kalani_brings_kalani(data: StoreData) -> None:
     names = [p.name for p in data.search_products(ProductFilter(text="kalani"))]
     assert names and all(name.startswith("Kalani ") for name in names)
+
+
+def test_name_lookup_kala_does_not_bring_kalani(data: StoreData) -> None:
+    matches = data.match_product_name("ukulele Kala", limit=5)
+    assert matches and all(m.product.name.startswith("Kala ") for m in matches)
+
+
+def test_name_lookup_kalani_brings_kalani(data: StoreData) -> None:
+    matches = data.match_product_name("kalani", limit=3)
+    assert all(m.product.name.startswith("Kalani ") for m in matches)
