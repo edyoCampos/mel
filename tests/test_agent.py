@@ -371,3 +371,21 @@ def test_short_ambiguous_message_does_not_trigger_guard(build: Any) -> None:
     agent, _ = build(llm)
     assert agent.reply("ok") == "Oi! Como posso te ajudar?"
     assert len(llm.requests) == 1
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "quanto custa o Music Man Bass 1X Electric Bass?",
+        "tem o Fender Stratocaster American Pro II em estoque?",
+        "quero um Takamine GD20 Dreadnought Natural",
+    ],
+)
+def test_english_product_names_in_portuguese_message_do_not_trigger_guard(
+    build: Any, message: str
+) -> None:
+    llm = FakeLLM([text("Tenho sim! Esse modelo está disponível para você.")])
+    agent, recorder = build(llm)
+    assert agent.reply(message) == "Tenho sim! Esse modelo está disponível para você."
+    assert len(llm.requests) == 1
+    assert "language_guard" not in [e.kind for e in recorder.events]
