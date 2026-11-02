@@ -201,7 +201,13 @@ def export(
     return path
 
 
-_GUARD_EVENTS = {"protocol_guard", "language_guard", "alternatives_guard", "llm_error"}
+_GUARD_EVENTS = {
+    "protocol_guard",
+    "language_guard",
+    "alternatives_guard",
+    "llm_error",
+    "limit_reached",  # with the refused calls
+}
 
 
 def save_failure(
@@ -219,7 +225,7 @@ def save_failure(
         "",
         *[f"- {failure}" for failure in result.failures],
         "",
-        "## Guards and errors (drafts truncated)",
+        "## Guards, errors and tool-call limit (drafts truncated)",
         "",
         *[f"- {e.kind}: {e.summary}" for e in result.events if e.kind in _GUARD_EVENTS],
         "",

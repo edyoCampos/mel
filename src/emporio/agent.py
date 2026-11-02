@@ -256,7 +256,12 @@ class Agent:
                     continue
                 return self._finish(content)
             if calls_done + len(response.tool_calls) > self.MAX_TOOL_CALLS_PER_TURN:
-                self._emit(TraceEvent("limit_reached", None, None, f"{calls_done} tool calls", 0))
+                refused = ", ".join(
+                    f"{c.name} {json.dumps(_masked_arguments(c.arguments), ensure_ascii=False)}"
+                    for c in response.tool_calls
+                )
+                summary = f"{calls_done} tool calls; refused: {refused}"
+                self._emit(TraceEvent("limit_reached", None, None, summary, 0))
                 return self._finish(FALLBACK_LIMIT)
             self._history.append(
                 Message(role="assistant", content=response.content, tool_calls=response.tool_calls)
