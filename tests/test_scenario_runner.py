@@ -128,3 +128,43 @@ def test_export_writes_header_and_transcript(run: Any, tmp_path: Path) -> None:
     assert "quanto custa o takamine gd 20?" in content
     assert "R$ 2.199,00" in content
     assert "get_product_details" in content
+
+
+# ---------- Transcripts of failing scenarios ----------
+
+FAILING_SCRIPT = [
+    tool_calls(call("get_product_details", '{"query": "takamine gd 20"}')),
+    text("O Takamine GD20 está em promoção."),
+]
+
+
+def test_failure_transcript_has_failures_tool_results_and_replies(run: Any, tmp_path: Path) -> None:
+    item = scenario()
+    result = run(item, FakeLLM(FAILING_SCRIPT))
+    assert not result.passed
+    path = runner.save_failure(
+        result, item, tmp_path / "failures", model="test-model", stamp="20261102-1800"
+    )
+    content = path.read_text(encoding="utf-8")
+    assert path == tmp_path / "failures" / "20261102-1800-takamine.md"
+    assert "test-model" in content
+    assert "must include: 'R$ 2.199,00'" in content
+    assert "quanto custa o takamine gd 20?" in content
+    assert '{"query": "takamine gd 20"}' in content  # tool call with its arguments
+    assert '"price_display": "R$ 2.199,00"' in content  # full tool result
+    assert "O Takamine GD20 está em promoção." in content
+
+
+def test_failure_transcript_lists_guard_events(run: Any, tmp_path: Path) -> None:
+    item = scenario(messages=["Hi! How much is the Takamine GD20?"])
+    llm = FakeLLM([text("O Takamine GD20 custa caro."), text("It costs a lot.")])
+    result = run(item, llm)
+    path = runner.save_failure(result, item, tmp_path, model="m", stamp="s")
+    content = path.read_text(encoding="utf-8")
+    assert "language_guard" in content
+    assert "O Takamine GD20 custa caro." in content  # the rejected draft
+
+
+def test_failure_transcripts_are_not_versioned() -> None:
+    ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+    assert runner.FAILURES_DIR.relative_to(ROOT).as_posix() + "/" in ignored
