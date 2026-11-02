@@ -82,6 +82,19 @@ class LLMSettings:
         )
 
 
+# HTTP 429 (rate limit), 502 and 503 (provider overloaded) share the retry policy (AS-81)
+RETRYABLE_STATUS = frozenset({429, 502, 503})
+DEGENERATE_ALNUM_RATIO = 0.3
+
+
+def is_degenerate(content: str | None) -> bool:
+    """Empty text, or text that is mostly symbols, zero-width spaces and ellipses (AS-81)."""
+    visible = [c for c in (content or "") if not c.isspace()]
+    if not visible:
+        return True
+    return sum(c.isalnum() for c in visible) / len(visible) < DEGENERATE_ALNUM_RATIO
+
+
 RETRY_AFTER_CAP_SECONDS = 60.0  # AS-37, AS-73: per-minute token quotas reset within 60 s
 
 
@@ -143,12 +156,22 @@ class OpenAICompatibleClient:
             request["reasoning_effort"] = self._settings.reasoning_effort
         attempts = self._settings.max_attempts
         for attempt in range(1, attempts + 1):
+            last = attempt == attempts
+            wait = self._settings.backoff_base_seconds * 2 ** (attempt - 1)
             try:
-                return self._parse(self._client.chat.completions.create(**request))
-            except openai.RateLimitError as exc:
-                if attempt == attempts:
-                    raise LLMError(f"rate limited by provider after {attempts} attempts") from None
-                wait = self._settings.backoff_base_seconds * 2 ** (attempt - 1)
+                response = self._parse(self._client.chat.completions.create(**request))
+            except openai.APIStatusError as exc:
+                status = exc.status_code
+                if status not in RETRYABLE_STATUS:
+                    raise LLMError(f"provider returned HTTP {status}") from None
+                if last:
+                    if status == 429:
+                        raise LLMError(
+                            f"rate limited by provider after {attempts} attempts"
+                        ) from None
+                    raise LLMError(
+                        f"provider returned HTTP {status} after {attempts} attempts"
+                    ) from None
                 hinted = _retry_after(exc)
                 if hinted is not None and hinted > RETRY_AFTER_CAP_SECONDS:
                     # e.g. a daily token quota; waiting the cap cannot help (AS-75)
@@ -156,14 +179,19 @@ class OpenAICompatibleClient:
                 if hinted is not None:
                     wait = min(max(wait, hinted), RETRY_AFTER_CAP_SECONDS)
                 self._sleep(wait)
-            except openai.APIStatusError as exc:
-                raise LLMError(f"provider returned HTTP {exc.status_code}") from None
+                continue
             except openai.APITimeoutError:
                 raise LLMError("provider timed out") from None
             except openai.APIConnectionError:
                 raise LLMError("could not connect to the provider") from None
             except openai.OpenAIError as exc:
                 raise LLMError(f"provider error: {type(exc).__name__}") from None
+            if response.tool_calls or not is_degenerate(response.content):
+                return response
+            # Empty or garbage text is never shown to the customer (AS-81)
+            if last:
+                raise LLMError("empty or degenerate response from provider")
+            self._sleep(wait)
         raise LLMError("no response from provider")  # pragma: no cover
 
     @staticmethod
