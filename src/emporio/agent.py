@@ -7,6 +7,7 @@ answer, while every amount comes from tool results already formatted (D-01, D-04
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from collections.abc import Callable
@@ -15,7 +16,7 @@ from datetime import datetime
 from importlib.resources import files
 from typing import Any, Protocol
 
-from emporio.llm import LLMClient, LLMError, Message
+from emporio.llm import LLMClient, LLMError, Message, QuotaExceededError
 from emporio.services import (
     CUSTOMER_LANGUAGE,
     STORE_TZ,
@@ -36,6 +37,7 @@ FALLBACK_LIMIT = (
     "Hmm, essa pergunta ficou mais complexa do que eu consigo resolver por aqui. "
     "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
 )
+FALLBACK_QUOTA = "O provedor gratuito atingiu o limite de uso. Tente de novo em {wait}."
 EMPTY_MESSAGE_REPLY = "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?"
 # Protocol guard (D-12 exception): a protocol exists only when escalate_to_human
 # returned it. A reply that mentions one without that gets one retry with this instruction
@@ -229,6 +231,10 @@ class Agent:
             except LLMError as exc:
                 elapsed = int((time.monotonic() - started) * 1000)
                 self._emit(TraceEvent("llm_error", None, None, str(exc)[:_SUMMARY_LIMIT], elapsed))
+                if isinstance(exc, QuotaExceededError):
+                    minutes = max(1, math.ceil(exc.retry_after_seconds / 60))
+                    wait = "1 minuto" if minutes == 1 else f"{minutes} minutos"
+                    return self._finish(FALLBACK_QUOTA.format(wait=wait))
                 return self._finish(FALLBACK_ERROR)
             if not response.tool_calls:
                 content = response.content or ""

@@ -48,6 +48,14 @@ class LLMError(Exception):
     """Timeout, network or auth error, rate limit after retries, or malformed response."""
 
 
+class QuotaExceededError(LLMError):
+    """The provider's usage quota is used up; retrying before retry_after_seconds cannot help."""
+
+    def __init__(self, message: str, retry_after_seconds: float) -> None:
+        super().__init__(message)
+        self.retry_after_seconds = retry_after_seconds
+
+
 class LLMClient(Protocol):
     def complete(
         self,
@@ -175,7 +183,9 @@ class OpenAICompatibleClient:
                 hinted = _retry_after(exc)
                 if hinted is not None and hinted > RETRY_AFTER_CAP_SECONDS:
                     # e.g. a daily token quota; waiting the cap cannot help
-                    raise LLMError(f"rate limited by provider; retry in {hinted:.0f} s") from None
+                    raise QuotaExceededError(
+                        f"rate limited by provider; retry in {hinted:.0f} s", hinted
+                    ) from None
                 if hinted is not None:
                     wait = min(max(wait, hinted), RETRY_AFTER_CAP_SECONDS)
                 self._sleep(wait)
