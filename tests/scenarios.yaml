@@ -181,3 +181,22 @@
   # Code-written phrases in English too
   must_not_include: ["seu pedido", "Olá", "horas úteis", "terça-feira"]
   export_as: examples/05-english-delayed-order.md
+
+# 16 - FR-02, D-13: whole words, "Kala" is not "Kalani" (independent review)
+- id: kala-not-kalani
+  title: Kala ukuleles without the Kalani brand
+  now: "2026-11-03T10:00:00-04:00"
+  messages: ["Quero um ukulele Kala"]
+  expected_tools: []
+  must_include: ["Kala KA-15S", "Kala KA-C"]
+  must_not_include: ["Kalani"]
+
+# 17 - FR-07, FR-08: a defect 40 days after receipt is covered by the 90-day legal warranty
+- id: defect-legal-warranty
+  title: Defect 40 days after receipt, within the legal warranty (independent review)
+  now: "2026-11-03T10:00:00-04:00"
+  messages:
+    - "Recebi meu violão há 40 dias e ele apresentou um defeito de fabricação. Ainda tenho garantia?"
+  expected_tools: [get_store_policy]
+  must_include: ["garantia legal", "90"]
+  must_not_include: []
