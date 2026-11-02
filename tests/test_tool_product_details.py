@@ -30,6 +30,9 @@ def test_takamine_by_query_with_typo(details: Any) -> None:
     assert pricing["current_price"] == "R$ 2.199,00"
     assert pricing["pix_price"] == "R$ 2.089,05"
     assert pricing["best_installments"] == "12x de R$ 183,25 sem juros"
+    assert pricing["price_display"] == "R$ 2.199,00"
+    assert pricing["pix_display"] == "R$ 2.089,05 no PIX"
+    assert pricing["installments_display"] == "até 12x de R$ 183,25 sem juros"
 
 
 def test_takamine_inactive_promotion_listed_without_price(details: Any) -> None:
@@ -44,7 +47,9 @@ def test_takamine_inactive_promotion_listed_without_price(details: Any) -> None:
 
 def test_ohana_promotion_display_and_no_pix(details: Any) -> None:
     pricing = details({"product_id": 121}).payload["pricing"]
-    assert pricing["promotion_display"] == "de R$ 549,00 por R$ 439,20 (20% off)"
+    assert pricing["price_display"] == "de R$ 549,00 por R$ 439,20 (20% off)"
+    assert "pix_display" not in pricing  # absent with an active promotion (R-02)
+    assert pricing["installments_display"] == "até 5x de R$ 87,84 sem juros"
     assert pricing["current_price"] == "R$ 439,20"
     assert pricing["pix_price"] is None
     assert pricing["best_installments"] == "5x de R$ 87,84 sem juros"

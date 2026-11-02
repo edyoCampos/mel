@@ -36,6 +36,9 @@ def test_results_sorted_by_price(search: Any) -> None:
     assert products[0]["price"] == "R$ 429,90"
     assert products[0]["pix_price"] == "R$ 408,41"
     assert products[0]["best_installments"] == "5x de R$ 85,98 sem juros"
+    assert products[0]["price_display"] == "R$ 429,90"
+    assert products[0]["pix_display"] == "R$ 408,41 no PIX"
+    assert products[0]["installments_display"] == "até 5x de R$ 85,98 sem juros"
     assert products[-1]["name"] == "Tagima TW-7 7 Cordas Aço Natural"
     assert products[-1]["price"] == "R$ 999,00"
 

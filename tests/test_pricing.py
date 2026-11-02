@@ -60,3 +60,35 @@ def test_combine_payment_methods_exactly_2000_is_false() -> None:
 
 def test_combine_payment_methods_above_2000_is_true() -> None:
     assert pricing.can_combine_payment_methods(Money("2000.01")) is True
+
+
+# ---------- Ready-to-copy display strings (AS-78) ----------
+
+
+def test_display_without_promotion() -> None:
+    quote = pricing.quote(make_product(), [])
+    assert quote.price_display == "R$ 2.199,00"
+    assert quote.pix_display == "R$ 2.089,05 no PIX"
+    assert quote.installments_display == "até 12x de R$ 183,25 sem juros"
+
+
+def test_display_with_active_promotion_has_no_pix() -> None:
+    ohana = make_product(id=121, name="Ohana CK-20 Concert Natural", category_id=9, price="549")
+    promotion = make_promotion(ohana, discount_percent=20, is_active=True, id=14)
+    quote = pricing.quote(ohana, [promotion])
+    assert quote.price_display == "de R$ 549,00 por R$ 439,20 (20% off)"
+    assert quote.pix_display is None  # R-02: no PIX discount over a promotion
+    assert quote.installments_display == "até 5x de R$ 87,84 sem juros"
+
+
+def test_display_ignores_inactive_promotion() -> None:
+    takamine = make_product()
+    expired = make_promotion(takamine, discount_percent=12, is_active=False, id=4)
+    assert pricing.quote(takamine, [expired]).price_display == "R$ 2.199,00"
+
+
+def test_installments_display_prefix_and_single() -> None:
+    many = pricing.quote(make_product(price="1000"), [])
+    assert many.installments_display == "até 10x de R$ 100,00 sem juros"
+    single = pricing.quote(make_product(price="80"), [])
+    assert single.installments_display == single.best_installments.describe_pt()
