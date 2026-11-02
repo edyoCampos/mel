@@ -65,6 +65,8 @@ class LLMSettings:
     timeout_seconds: float = 30.0
     max_attempts: int = 3  # D-09: at most 3 attempts on HTTP 429
     backoff_base_seconds: float = 1.0
+    # Optional LLM_REASONING_EFFORT ("low", "none", ...); empty means not sent (AS-76)
+    reasoning_effort: str | None = None
 
     @classmethod
     def from_env(cls) -> LLMSettings:
@@ -76,6 +78,7 @@ class LLMSettings:
             base_url=os.environ["LLM_BASE_URL"].strip(),
             api_key=os.environ["LLM_API_KEY"].strip(),
             model=os.environ["LLM_MODEL"].strip(),
+            reasoning_effort=os.environ.get("LLM_REASONING_EFFORT", "").strip() or None,
         )
 
 
@@ -136,6 +139,8 @@ class OpenAICompatibleClient:
         }
         if tools:
             request["tools"] = tools
+        if self._settings.reasoning_effort:
+            request["reasoning_effort"] = self._settings.reasoning_effort
         attempts = self._settings.max_attempts
         for attempt in range(1, attempts + 1):
             try:
