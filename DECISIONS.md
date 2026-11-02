@@ -41,6 +41,6 @@ challenge asks for. Status: **kept** (from the first plan), **revised** (changed
 - Escalations get a protocol `EM-YYYYMMDD-NNNN` and a JSON line in `logs/escalations.jsonl`, with contacts masked.
 - Prices reach the model as ready-to-copy strings from `PricingService` (`price_display`, `pix_display`, `installments_display`); `pix_display` is absent when a promotion is active, so PIX can never be stacked on it.
 - `get_store_policy("promotions")` adds `active_campaign_promotions`, computed from `promotions.csv`: citing the manual's usual campaign ranges is transparency; promising a discount or start date is not allowed.
-- The store context gives the next opening in Portuguese ("segunda-feira, 09/11/2026, às 09:00"), the same text the escalation tool returns.
+- The store context gives the next opening in the customer's language ("segunda-feira, 09/11/2026, às 09:00" or "Monday, 09/11/2026, at 09:00"), the same text the escalation tool returns.
 - Empty or degenerate model replies (mostly symbols or zero-width spaces) are retried and then become an explicit error; they are never shown to the customer.
 - Replies are normalized to plain hyphens and spaces ("R$ 429,90", "12%"), because some models write U+2011 or U+202F.
