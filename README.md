@@ -224,6 +224,11 @@ Development followed TDD: the history shows each `test:` commit before its `feat
 run (`uv run python scripts/run_scenarios.py --export`; 41 model calls, about 108k tokens). The language guard
 fired once, in `english-delayed-order-escalation`, and the retry passed.
 
+> **Update pending.** A review of the exported conversations on 02/11 led to four fixes (no
+> actions without a tool, every search result listed, code-written phrases in the customer's
+> language, "PIX" written once) and to stricter scenarios. The results above predate them;
+> they will be updated after the full run of 03/11/2026, which also regenerates the examples.
+
 This is the result **measured on that day, not a guarantee**: the model's answers vary between
 runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
 fail a scenario on wording or on the provider. Earlier runs on 01/11 included 8/15 and 11/15;
@@ -252,8 +257,10 @@ To rerun one scenario: `uv run python scripts/run_scenarios.py --only <id>`.
 
 ## Example conversations
 
-Exported unedited from the 02/11/2026 run into [`examples/`](examples/) (the header of each
-file gives the scenario, model, run date and frozen store clock):
+Exported unedited into [`examples/`](examples/) by the scenario runner; the header of each file
+gives the scenario, model, run date and frozen store clock. The current files come from the
+02/11/2026 run, before the fixes above, and will be regenerated on 03/11/2026 from the same
+code that is delivered:
 
 1. [`01-acoustic-guitars-under-1000.md`](examples/01-acoustic-guitars-under-1000.md): catalog
    search and store address (data + policy).
