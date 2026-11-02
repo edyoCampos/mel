@@ -37,15 +37,17 @@ cp .env.example .env       # then put a free Groq API key in .env
 make chat                  # talk to Mel in the terminal
 ```
 
-## The five decisions
+## Key decisions
 
 | Topic | Decision |
 | --- | --- |
 | Framework | Own function-calling loop, no LangChain: linear flow, testable offline with a scripted LLM |
 | Model and provider | Groq `openai/gpt-oss-120b` through an OpenAI-compatible adapter, free for the evaluator |
+| Interface | CLI with `--trace` to show each tool call |
+| Conversation history (persistence) | History in memory for the session |
+| Data handling | CSVs validated with Pydantic, product specs normalized, and all 26 data or policy inconsistencies found documented with a decision (README, Data findings) |
 | Retrieval | Policies by topic and data through typed tools; no vector store for an 8-page manual |
 | Prompt | Six blocks plus date, time and store status on every turn; rules that matter are enforced in code |
-| Interface and history | CLI with `--trace` to show each tool call; history in memory for the session |
 
 All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 

@@ -103,7 +103,8 @@ scenarios; [`DECISIONS.md`](DECISIONS.md) has the full decision log.
 ## Technical decisions
 
 The full decision log is in [`DECISIONS.md`](DECISIONS.md). Summary of the five decisions the
-challenge asks for:
+challenge asks for, followed by the retrieval architecture and the prompt strategy, which the
+README must also justify:
 
 **1. Framework / agent approach — function calling with a small own loop (no LangChain).**
 The flow is linear with five tools; a short loop is easy to test (a scripted `FakeLLM`
@@ -118,24 +119,28 @@ so one adapter serves any OpenAI-compatible provider. The adapter retries HTTP 4
 is 0. Gemini was the first choice, but after the initial test its free tier took about 50 s per
 call and later timed out or returned 503, so the fallback rule made Groq the default.
 
-**3. Retrieval — structured retrieval by topic, not a vector store.** The manual has 8 pages
-and 10 sections, so each policy topic maps to fixed sections; embeddings would only add
+**3. Interaction interface — CLI.** The challenge focuses on the agent, and `--trace` shows its
+reasoning better than a web page would.
+
+**4. Conversation history persistence — in memory, for the session.** Persisting it was not
+needed for a terminal prototype; SQLite is listed under "With more time".
+
+**5. Data handling.** The CSVs are loaded once into validated models; money is `Decimal`; the
+mixed `strings` spec is split into material and count; fuzzy matching handles typos ("takamine
+gd 20"). The manual was converted once to Markdown and reviewed (`scripts/extract_policies.py`).
+Every inconsistency found in the data and the manual is documented with a decision in
+[Data findings and assumptions](#data-findings-and-assumptions).
+
+**Retrieval architecture — structured retrieval by topic, not a vector store.** The manual has 8
+pages and 10 sections, so each policy topic maps to fixed sections; embeddings would only add
 retrieval errors. Store data is queried through tools, not retrieved as text. Policies are a
 tool (not pasted into the prompt) so that the "data or policy?" decision is visible and testable.
 
-**4. Prompt strategy — blocks plus time context every turn.** The system prompt has six blocks
+**Prompt strategy — blocks plus time context every turn.** The system prompt has six blocks
 (identity and tone, inviolable rules, when to use each tool, conversation flow and special
 situations, answer format, current context). The current date, time and store status are
 injected on every turn; without them the model gets "are you open?" wrong. The inviolable rule
 that matters most: never state an amount that did not come from a tool.
-
-**5. Interface and conversation history — CLI, history in memory.** The challenge focuses on the
-agent, and `--trace` shows its reasoning better than a web page would. History lives in memory
-for the session; persisting it was not needed for a terminal prototype.
-
-**Data treatment.** The CSVs are loaded once into validated models; money is `Decimal`; the mixed
-`strings` spec is split into material and count; fuzzy matching handles typos ("takamine gd 20").
-The manual was converted once to Markdown and reviewed (`scripts/extract_policies.py`).
 
 ### About the data in this repository
 
