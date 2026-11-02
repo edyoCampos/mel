@@ -275,6 +275,9 @@ class StoreData:
     def products_in_category(self, category_id: int) -> list[Product]:
         return [p for p in self._products.values() if p.category_id == category_id]
 
+    def active_promotions(self) -> list[Promotion]:
+        return [p for items in self._promotions.values() for p in items if p.is_active]
+
     def promotions_for(self, product_id: int) -> list[Promotion]:
         return list(self._promotions.get(product_id, []))
 

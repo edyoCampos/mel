@@ -19,7 +19,7 @@ from typing import Any, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_validator
 
-from emporio.models import Product
+from emporio.models import Product, normalize_text
 from emporio.policies import MANUAL_VERSION, PolicyBook, PolicyTopic
 from emporio.services import (
     STORE_TZ,
@@ -564,6 +564,40 @@ class GetOrderStatusTool(Tool):
 # ---------- get_store_policy (FR-07, FR-08, FR-10) ----------
 
 
+# Seasonal campaigns named in the manual (§6.1) and in promotions.csv; "Oferta Especial"
+# and "Desconto Exclusivo" are product promotions, not campaigns (AS-79)
+SEASONAL_CAMPAIGNS = (
+    "Aniversário da Loja",
+    "Black Friday",
+    "Volta às Aulas",
+    "Queima de Estoque",
+    "Semana do Músico",
+    "Liquidação de Inverno",
+    "Promoção de Páscoa",
+)
+CAMPAIGN_NOTE = (
+    "active_campaign_promotions comes from the store data. When it is empty, no seasonal "
+    "campaign is active now: you may cite the manual's usual ranges as information, but "
+    "never promise a discount or a start date; suggest following the store's redes sociais."
+)
+
+
+def active_campaign_promotions(data: StoreData) -> list[dict[str, Any]]:
+    campaigns = {normalize_text(name) for name in SEASONAL_CAMPAIGNS}
+    found = []
+    for promotion in data.active_promotions():
+        product = data.get_product(promotion.product_id)
+        if product is not None and normalize_text(promotion.description) in campaigns:
+            found.append(
+                {
+                    "campaign": promotion.description,
+                    "product": product.name,
+                    "discount_percent": promotion.discount_percent,
+                }
+            )
+    return found
+
+
 class GetStorePolicyArgs(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -583,12 +617,16 @@ class GetStorePolicyTool(Tool):
     def run(self, args: BaseModel) -> dict[str, Any]:
         assert isinstance(args, GetStorePolicyArgs)
         section = self.context.policies.get(args.topic)
-        return {
+        payload: dict[str, Any] = {
             "topic": section.topic.value,
             "manual_sections": list(section.sections),
             "manual_version": MANUAL_VERSION,
             "text": section.text,
         }
+        if section.topic is PolicyTopic.PROMOTIONS:
+            payload["active_campaign_promotions"] = active_campaign_promotions(self.context.data)
+            payload["note"] = CAMPAIGN_NOTE
+        return payload
 
 
 # ---------- escalate_to_human (FR-13, FR-17, R-15, R-16) ----------
