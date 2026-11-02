@@ -9,6 +9,7 @@ import pytest
 from pydantic import BaseModel, ConfigDict
 
 from emporio.agent import (
+    ALTERNATIVES_NUDGE,
     FALLBACK_ERROR,
     FALLBACK_LIMIT,
     FALLBACK_NO_PROTOCOL,
@@ -444,3 +445,77 @@ def test_reset_restores_portuguese(build_probe: Any) -> None:
     agent.reset()
     agent.reply("ok")
     assert '"language": "pt"' in (llm.requests[2][0][-1].content or "")
+
+
+# ---------- Alternatives guard (D-12 exception) ----------
+
+GF3D = '{"query": "Giannini GF-3D"}'  # out of stock; the tool returns Shelby SGD-195E first
+
+
+def test_unavailable_product_reply_without_alternatives_gets_one_retry(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("get_product_details", GF3D)),
+            text("O Giannini GF-3D está sem estoque. Quer que eu procure outros Giannini?"),
+            text("O GF-3D está sem estoque. Uma opção é o Shelby SGD-195E por R$ 799,00."),
+        ]
+    )
+    agent, recorder = build(llm, clock=lambda: TUESDAY)
+    reply = agent.reply("Vocês têm o violão Giannini GF-3D?")
+    assert reply == "O GF-3D está sem estoque. Uma opção é o Shelby SGD-195E por R$ 799,00."
+    retry_messages = llm.requests[2][0]
+    assert retry_messages[-1].role == "system"
+    assert retry_messages[-1].content == ALTERNATIVES_NUDGE
+    assert all(m.content != ALTERNATIVES_NUDGE for m in agent.history)  # never stored
+    assert "alternatives_guard" in [e.kind for e in recorder.events]
+
+
+def test_second_reply_without_alternatives_is_kept(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("get_product_details", GF3D)),
+            text("O GF-3D está sem estoque."),
+            text("O GF-3D está sem estoque no momento."),
+        ]
+    )
+    agent, _ = build(llm, clock=lambda: TUESDAY)
+    assert agent.reply("Vocês têm o GF-3D?") == "O GF-3D está sem estoque no momento."
+    assert len(llm.requests) == 3
+
+
+def test_reply_citing_an_alternative_is_untouched(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("get_product_details", GF3D)),
+            text("O GF-3D está sem estoque; o Yamaha C70 sai por R$ 849,00."),
+        ]
+    )
+    agent, recorder = build(llm, clock=lambda: TUESDAY)
+    agent.reply("Vocês têm o GF-3D?")
+    assert len(llm.requests) == 2
+    assert "alternatives_guard" not in [e.kind for e in recorder.events]
+
+
+def test_alternative_written_with_a_non_breaking_hyphen_counts_as_cited(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("get_product_details", GF3D)),
+            text("Sem estoque; o shelby SGD\u2011195E sai por R$ 799,00."),
+        ]
+    )
+    agent, _ = build(llm, clock=lambda: TUESDAY)
+    agent.reply("Vocês têm o GF-3D?")
+    assert len(llm.requests) == 2
+
+
+def test_available_product_does_not_trigger_alternatives_guard(build: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("get_product_details", '{"query": "Yamaha C40"}')),
+            text("O Yamaha C40 sai por R$ 599,90."),
+        ]
+    )
+    agent, recorder = build(llm, clock=lambda: TUESDAY)
+    agent.reply("Quanto custa o Yamaha C40?")
+    assert len(llm.requests) == 2
+    assert "alternatives_guard" not in [e.kind for e in recorder.events]
