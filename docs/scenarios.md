@@ -1,12 +1,12 @@
 # Conversation scenarios
 
-`tests/scenarios.yaml` holds 15 conversations run against the real model by
+`tests/scenarios.yaml` holds 17 conversations run against the real model by
 `scripts/run_scenarios.py`. Each one freezes the store clock (`now`, in `America/Campo_Grande`)
 and checks objective things only: the tools that must be called, the text that must appear in
 Mel's replies and the text that must not (case-insensitive). There is no LLM judge.
 
 ```bash
-make scenarios                                                   # all 15
+make scenarios                                                   # all 17
 uv run python scripts/run_scenarios.py --only <id>               # one scenario
 uv run python scripts/run_scenarios.py --export                  # also write examples/
 ```
@@ -34,6 +34,8 @@ adapter, changing only environment variables.
 | 13 | `black-friday-not-active` | Tue 03/11/2026 10:00 | none | No active campaign: no discount or start date promised; points to social media | |
 | 14 | `complaint-out-of-hours` | Sat 07/11/2026 15:00 | `escalate_to_human` | A real protocol, the 24-business-hour response time and the next opening (09/11) | |
 | 15 | `english-delayed-order-escalation` | Sun 01/11/2026 10:00 | `get_order_status`, `escalate_to_human` | An English conversation stays in English, including the code-written phrases; delayed order handed to a human with a protocol | [05](../examples/05-english-delayed-order.md) |
+| 16 | `kala-not-kalani` | Tue 03/11/2026 10:00 | none | "Quero um ukulele Kala" lists Kala ukuleles (KA-15S, KA-C) and never the Kalani brand | |
+| 17 | `defect-legal-warranty` | Tue 03/11/2026 10:00 | `get_store_policy` | A defect 40 days after receipt is covered by the 90-day legal warranty | |
 
 ## Results
 

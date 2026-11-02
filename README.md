@@ -6,6 +6,10 @@ and store policies, in the store's tone, without inventing prices, stock or rule
 
 Built in Python for the Artefact AI Engineer technical challenge (2026).
 
+> **Free tier limits.** Groq's free plan limits tokens per minute and per day, so answers can be
+> slow and the daily quota can run out (Mel then says so and when to try again). Any
+> OpenAI-compatible provider works by changing the `LLM_*` variables in `.env`.
+
 **Core idea: the LLM decides _what_ to look up; the code decides _how much_.** The model
 understands the request, chooses a tool and writes the answer. Every amount (promotional
 price, PIX discount, installments, deadlines, store hours) is computed by tested Python code
@@ -201,7 +205,7 @@ taken for each.
 | Unit | Money, every rule of the manual (installments, PIX × promotion, shipping, return windows, delays, identity, store hours with holidays) | Yes |
 | Integration | CSV loading, the 5 tools end to end, the manual's 10 sections | Yes |
 | Agent loop | Scripted `FakeLLM`: tool → answer, invalid arguments, 6-call limit, LLM errors, protocol, language and alternatives guards (including English product names in Portuguese messages) | Yes |
-| Scenarios | 15 real conversations checking tools called and required/forbidden text (`tests/scenarios.yaml`) | No (needs an API key) |
+| Scenarios | 17 real conversations checking tools called and required/forbidden text (`tests/scenarios.yaml`) | No (needs an API key) |
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
@@ -254,6 +258,8 @@ re-exporting them:
   can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
   and 502/503 errors can slow it down (the runner pauses between scenarios).
+- The model sometimes offers actions that do not exist (reserving a product, checkout), despite
+  the prompt rule against it.
 - Language detection recognizes only English and Portuguese, using common function words; a
   very short message ("ok") keeps the conversation's previous language. Prices ("sem juros"),
   delivery texts and the policy manual stay in Portuguese in English conversations.

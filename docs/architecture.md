@@ -61,7 +61,8 @@ sequenceDiagram
 The system prompt is rebuilt on every turn with the current date, time and store status (open
 until, or next opening), because without it the model gets "are you open?" wrong. More than 6
 tool calls in a turn returns a fallback that offers a human. An LLM error returns a friendly
-message with the store contacts.
+message with the store contacts; when the provider's usage quota is used up, Mel says so and
+when to try again, and `--trace` shows the technical reason.
 
 `llm.py` retries HTTP 429, 502 and 503 up to 3 attempts (waits of 1 s and 2 s, `Retry-After`
 honoured up to 60 s), and retries a reply that is empty or degenerate (mostly symbols or
