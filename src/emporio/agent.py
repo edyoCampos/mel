@@ -43,6 +43,109 @@ FALLBACK_NO_PROTOCOL = (
 )
 _PROTOCOL_WORD = re.compile(r"protocol", re.IGNORECASE)
 _PROTOCOL_CODE = re.compile(r"EM-\d{8}-\d{4}")
+# Language guard (AS-82): an English customer message answered in Portuguese gets one retry
+# with this instruction (sent, never stored); a second Portuguese draft is kept.
+LANGUAGE_NUDGE = (
+    "The customer's latest message is in English. Rewrite your reply entirely in English, "
+    "keeping every code, date and amount exactly as the tools returned them."
+)
+# Function words that exist in only one of the two languages ("a", "no", "do" are in both).
+_EN_WORDS = frozenset(
+    [
+        "the",
+        "is",
+        "are",
+        "was",
+        "my",
+        "your",
+        "you",
+        "i",
+        "me",
+        "where",
+        "what",
+        "when",
+        "how",
+        "why",
+        "please",
+        "yes",
+        "thanks",
+        "thank",
+        "hi",
+        "hello",
+        "and",
+        "to",
+        "for",
+        "with",
+        "can",
+        "could",
+        "would",
+        "will",
+        "it",
+        "this",
+        "that",
+        "have",
+        "has",
+        "order",
+        "ticket",
+        "of",
+    ]
+)
+_PT_WORDS = frozenset(
+    [
+        "o",
+        "os",
+        "as",
+        "de",
+        "da",
+        "das",
+        "dos",
+        "que",
+        "é",
+        "não",
+        "seu",
+        "sua",
+        "meu",
+        "minha",
+        "para",
+        "com",
+        "um",
+        "uma",
+        "você",
+        "está",
+        "estou",
+        "por",
+        "em",
+        "na",
+        "mas",
+        "já",
+        "oi",
+        "olá",
+        "obrigado",
+        "obrigada",
+        "pedido",
+        "tudo",
+        "bem",
+        "cadê",
+        "quero",
+        "posso",
+    ]
+)
+_WORD = re.compile(r"[^\W\d_]+")
+
+
+def _language_score(text: str) -> tuple[int, int]:
+    words = _WORD.findall(text.lower())
+    return sum(w in _EN_WORDS for w in words), sum(w in _PT_WORDS for w in words)
+
+
+def _is_english(text: str) -> bool:
+    english, portuguese = _language_score(text)
+    return english >= 2 and english > portuguese
+
+
+def _is_portuguese(text: str) -> bool:
+    english, portuguese = _language_score(text)
+    return portuguese >= 2 and portuguese > english
 
 
 def load_system_prompt_template() -> str:
@@ -57,6 +160,7 @@ _SUMMARY_LIMIT = 160
 @dataclass(frozen=True)
 class TraceEvent:
     kind: str  # "tool_call" | "tool_result" | "llm_error" | "limit_reached" | "protocol_guard"
+    # | "language_guard"
     name: str | None
     arguments: dict[str, Any] | None  # contacts masked (NFR-03)
     summary: str
@@ -146,6 +250,8 @@ class Agent:
         self._history.append(Message(role="user", content=user_message.strip()))
         calls_done = 0
         nudged = False
+        language_nudged = False
+        english = _is_english(user_message)
         protocols_before = len(self._protocols)
         schemas = self._registry.schemas()
         while True:
@@ -153,6 +259,8 @@ class Agent:
             extra = []
             if nudged and len(self._protocols) == protocols_before:
                 extra = [Message(role="system", content=PROTOCOL_NUDGE)]
+            if language_nudged:
+                extra.append(Message(role="system", content=LANGUAGE_NUDGE))
             try:
                 response = self._llm.complete(
                     [self._system_prompt(), *self._history, *extra], schemas
@@ -170,6 +278,12 @@ class Agent:
                     if nudged:
                         return self._finish(FALLBACK_NO_PROTOCOL)
                     nudged = True
+                    continue
+                if english and not language_nudged and _is_portuguese(content):
+                    self._emit(
+                        TraceEvent("language_guard", None, None, content[:_SUMMARY_LIMIT], 0)
+                    )
+                    language_nudged = True
                     continue
                 return self._finish(content)
             if calls_done + len(response.tool_calls) > self.MAX_TOOL_CALLS_PER_TURN:
