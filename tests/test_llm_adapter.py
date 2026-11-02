@@ -99,6 +99,20 @@ def test_tool_call_extra_content_round_trips() -> None:
     assert sent_call["extra_content"] == extra
 
 
+def test_reasoning_effort_sent_only_when_set() -> None:
+    client, stub, _ = make_client([completion()])
+    client.complete([Message(role="user", content="oi")])
+    assert "reasoning_effort" not in stub.calls[0]
+    settings = LLMSettings(
+        base_url=SETTINGS.base_url, api_key=KEY, model="m", reasoning_effort="low"
+    )
+    effort_client = OpenAICompatibleClient(settings)
+    effort_stub = StubCompletions([completion()])
+    effort_client._client = SimpleNamespace(chat=SimpleNamespace(completions=effort_stub))  # type: ignore[assignment]
+    effort_client.complete([Message(role="user", content="oi")])
+    assert effort_stub.calls[0]["reasoning_effort"] == "low"
+
+
 def test_no_tools_argument_when_none() -> None:
     client, stub, _ = make_client([completion()])
     client.complete([Message(role="user", content="oi")])

@@ -20,6 +20,18 @@ def test_settings_from_env_reads_variables(monkeypatch: pytest.MonkeyPatch) -> N
     assert settings.max_attempts == 3
 
 
+def test_reasoning_effort_is_optional(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("LLM_BASE_URL", GEMINI_URL)
+    monkeypatch.setenv("LLM_API_KEY", "test-key")
+    monkeypatch.setenv("LLM_MODEL", "gemini-3.8-flash")
+    monkeypatch.delenv("LLM_REASONING_EFFORT", raising=False)
+    assert LLMSettings.from_env().reasoning_effort is None
+    monkeypatch.setenv("LLM_REASONING_EFFORT", "  ")
+    assert LLMSettings.from_env().reasoning_effort is None
+    monkeypatch.setenv("LLM_REASONING_EFFORT", " low ")
+    assert LLMSettings.from_env().reasoning_effort == "low"
+
+
 def test_settings_from_env_missing_key_raises(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("LLM_BASE_URL", GEMINI_URL)
     monkeypatch.setenv("LLM_MODEL", "gemini-3.8-flash")
