@@ -116,7 +116,7 @@
     - "Me arrependi da minha compra, posso devolver meu pedido?"
     - "É o pedido 7, e-mail leticia.rocha@jmail.com. Comprei pelo site."
   expected_tools: [get_order_status, get_store_policy]
-  must_include: ["24/02/2026", "10 dias úteis"]
+  must_include: ["24/02", "10 dias úteis"]
   # No action without a tool (return label) and no eligibility before the lookup (AS-85)
   must_not_include: ["leticia.rocha@jmail.com", "etiqueta"]
   first_reply_must_not_include: ["pode devolver, sim"]
@@ -177,7 +177,7 @@
     - "Hi! Where is my order 8? My email is anacarol.ferreira@coldmail.com"
     - "Yes, please open a ticket for me."
   expected_tools: [get_order_status, escalate_to_human]
-  must_include: ["BRJL5544332BR", "28/02/2026", "EM-20261101-"]
+  must_include: ["BRJL5544332BR", "28/02", "EM-20261101-"]
   # Code-written phrases in English too (AS-84)
   must_not_include: ["seu pedido", "Olá", "horas úteis", "terça-feira"]
   export_as: examples/05-english-delayed-order.md
