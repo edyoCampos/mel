@@ -46,7 +46,13 @@ environment variables in `.env`:
 | `LLM_MODEL` | `openai/gpt-oss-120b` | `gemini-3.8-flash` |
 | `LLM_API_KEY` | key from the Groq console | key from Google AI Studio |
 
-`.env.example` has both blocks; comment one and uncomment the other.
+`.env.example` has both blocks; comment one and uncomment the other. Optionally,
+`LLM_REASONING_EFFORT` (for example `low`) is sent to the model; leave it empty to omit it.
+
+**Token budget on the free tier.** `make chat` fits easily: one turn costs about 3k tokens.
+`make scenarios` costs about **70k tokens per full run**, and Groq's free tier for
+`openai/gpt-oss-120b` allows 200k tokens per day (8k per minute), so plan at most two full
+runs a day; use `--only <id>` to rerun a single scenario.
 
 ---
 
