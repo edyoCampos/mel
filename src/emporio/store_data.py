@@ -84,6 +84,26 @@ def search_key(text: str) -> str:
     return " ".join(re.sub(r"[^a-z0-9]+", " ", flat).split())
 
 
+# Words that only describe the category; they lower the fuzzy score of the product actually
+# named ("violão Giannini GF-3D"), so the name lookup drops them (normalized, no accents).
+CATEGORY_WORDS = frozenset(
+    {"violao", "guitarra", "baixo", "ukulele", "teclado", "bateria", "instrumento"}
+)
+_MODEL_CODE = re.compile(r"(?=.*[a-z])(?=.*\d)[a-z0-9]+")
+
+
+def _without_category_words(query: str) -> str:
+    """'violão Giannini GF-3D' -> 'giannini gf3d'; a query made only of them is kept."""
+    key = search_key(query)
+    kept = [word for word in key.split() if word not in CATEGORY_WORDS]
+    return " ".join(kept) if kept else key
+
+
+def _model_codes(key: str) -> set[str]:
+    """Tokens with letters and digits ('gf3d', 'gd20', 'c40')."""
+    return {word for word in key.split() if _MODEL_CODE.fullmatch(word)}
+
+
 def _name_score(query: str, name: str) -> float:
     a, b = search_key(query), search_key(name)
     return max(
@@ -323,7 +343,17 @@ class StoreData:
         return [r[2] for r in results]
 
     def match_product_name(self, query: str, limit: int = 3) -> list[NameMatch]:
-        """Fuzzy match on product names, best first (D-13)."""
+        """Fuzzy match on product names, best first (D-13).
+
+        Category words are dropped first; a model code found in exactly one product name
+        makes that product the only match.
+        """
+        query = _without_category_words(query)
+        codes = _model_codes(query)
+        if codes:
+            owners = [p for p in self._products.values() if codes & set(search_key(p.name).split())]
+            if len(owners) == 1:
+                return [NameMatch(owners[0], 100.0)]
         scored = [NameMatch(p, _name_score(query, p.name)) for p in self._products.values()]
         scored.sort(key=lambda m: (-m.score, m.product.id))
         return scored[:limit]
