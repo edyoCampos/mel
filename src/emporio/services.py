@@ -97,8 +97,8 @@ class PriceQuote:
 
     @property
     def pix_display(self) -> str | None:
-        """'R$ 2.089,05 no PIX'; None with an active promotion (R-02)."""
-        return f"{self.pix_price} no PIX" if self.pix_price is not None else None
+        """'R$ 2.089,05' (the prompt adds "PIX:"); None with an active promotion (R-02)."""
+        return str(self.pix_price) if self.pix_price is not None else None
 
     @property
     def installments_display(self) -> str:
