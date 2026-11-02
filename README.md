@@ -62,9 +62,10 @@ Gemini. Both are free, so switching is only a matter of environment variables in
 `LLM_REASONING_EFFORT` (for example `low`) is sent to the model; leave it empty to omit it.
 
 **Token budget on the free tier.** `make chat` fits easily: one turn costs about 3k tokens.
-`make scenarios` costs about **70k tokens per full run**, and Groq's free tier for
-`openai/gpt-oss-120b` allows 200k tokens per day (8k per minute), so plan at most two full
-runs a day; use `--only <id>` to rerun a single scenario.
+`make scenarios` costs about **108k tokens per full run** (measured on 02/11/2026: 41 calls,
+almost all input tokens, because the prompt, the tool schemas and the history are sent again on
+every call). Groq's free tier for `openai/gpt-oss-120b` allows 200k tokens per day (8k per
+minute), so it fits **one full run a day**; use `--only <id>` to rerun a single scenario.
 
 ---
 
@@ -232,6 +233,8 @@ _To be exported from the scenario run into [`examples/`](examples/)._
 - An LLM judge for tone; property-based tests for the pricing rules; `mypy --strict`.
 - A WhatsApp webhook and a small web UI.
 - Hybrid search for the manual if it grows.
+- Fewer input tokens per call: a leaner prompt, compact tool schemas, and prompt caching where
+  the provider offers it.
 
 ---
 
