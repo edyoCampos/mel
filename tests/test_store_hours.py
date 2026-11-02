@@ -71,7 +71,8 @@ def test_converts_other_timezones() -> None:
 def test_describe_mentions_status_and_next_opening() -> None:
     line = hours.describe(local(2026, 11, 1, 10))
     assert "CLOSED" in line
-    assert "Tuesday, 03/11/2026 at 09:00" in line
+    # Portuguese weekday and date, ready to copy (AS-80)
+    assert "Next opening: terça-feira, 03/11/2026, às 09:00" in line
     assert "Finados" in line
 
 

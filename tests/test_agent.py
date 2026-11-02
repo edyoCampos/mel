@@ -8,10 +8,24 @@ from typing import Any
 import pytest
 from pydantic import BaseModel, ConfigDict
 
-from emporio.agent import FALLBACK_ERROR, FALLBACK_LIMIT, Agent, TraceEvent
+from emporio.agent import (
+    FALLBACK_ERROR,
+    FALLBACK_LIMIT,
+    FALLBACK_NO_PROTOCOL,
+    PROTOCOL_NUDGE,
+    Agent,
+    TraceEvent,
+)
 from emporio.llm import LLMError
 from emporio.services import STORE_TZ, StoreHours
-from emporio.tools import GetOrderStatusTool, GetProductDetailsTool, Tool, ToolContext, ToolRegistry
+from emporio.tools import (
+    EscalateToHumanTool,
+    GetOrderStatusTool,
+    GetProductDetailsTool,
+    Tool,
+    ToolContext,
+    ToolRegistry,
+)
 from tests.fakes import FakeLLM, call, text, tool_calls
 
 TEMPLATE = "You are Mel.\nNow: {weekday}, {now_local}.\n{store_status}"
@@ -218,3 +232,93 @@ def test_reset_clears_history(build: Any) -> None:
     agent.reply("oi")
     agent.reset()
     assert agent.history == []
+
+
+# ---------- Protocol guard (D-12 exception, AS-80) ----------
+
+
+@pytest.fixture
+def build_esc(make_context: Callable[..., ToolContext]) -> Callable[..., tuple[Agent, Recorder]]:
+    def make(llm: FakeLLM) -> tuple[Agent, Recorder]:
+        context = make_context()
+        registry = ToolRegistry([EscalateToHumanTool(context), PingTool(context)])
+        recorder = Recorder()
+        return Agent(llm, registry, TEMPLATE, lambda: SUNDAY, StoreHours(), recorder), recorder
+
+    return make
+
+
+ESCALATE = '{"reason": "complaint", "summary": "Violão chegou com o tampo rachado."}'
+
+
+def test_invented_protocol_triggers_one_retry_that_escalates(build_esc: Any) -> None:
+    llm = FakeLLM(
+        [
+            text("Abri o protocolo 2026-11-00123 para você."),
+            tool_calls(call("escalate_to_human", ESCALATE)),
+            text("Protocolo EM-20261101-0001, retorno em até 24 horas úteis."),
+        ]
+    )
+    agent, recorder = build_esc(llm)
+    assert agent.reply("Meu violão chegou rachado!") == (
+        "Protocolo EM-20261101-0001, retorno em até 24 horas úteis."
+    )
+    retry_messages = llm.requests[1][0]
+    assert retry_messages[-1].role == "system"
+    assert retry_messages[-1].content == PROTOCOL_NUDGE
+    assert all(m.content != PROTOCOL_NUDGE for m in agent.history)  # never stored
+    assert all("00123" not in (m.content or "") for m in agent.history)
+    assert "protocol_guard" in [e.kind for e in recorder.events]
+    assert llm.requests[2][0][-1].role == "tool"  # nudge dropped once escalated
+
+
+def test_invented_protocol_twice_returns_contacts_without_protocol(build_esc: Any) -> None:
+    llm = FakeLLM([text("Seu protocolo é 123."), text("Protocolo: 456.")])
+    agent, _ = build_esc(llm)
+    reply = agent.reply("Quero reclamar.")
+    assert reply == FALLBACK_NO_PROTOCOL
+    assert "protocol" not in reply.lower()
+    assert "(67) 3341-4444" in reply and "contato@emporiodamusica.com.br" in reply
+    assert len(llm.requests) == 2
+
+
+def test_english_protocol_word_is_guarded(build_esc: Any) -> None:
+    llm = FakeLLM([text("Your protocol is 99."), text("I could not open a ticket now.")])
+    agent, _ = build_esc(llm)
+    assert agent.reply("Please open a ticket.") == "I could not open a ticket now."
+    assert len(llm.requests) == 2
+
+
+def test_protocol_after_real_escalation_passes(build_esc: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("escalate_to_human", ESCALATE)),
+            text("Protocolo EM-20261101-0001."),
+            text("O seu protocolo é o EM-20261101-0001."),
+        ]
+    )
+    agent, _ = build_esc(llm)
+    assert agent.reply("Quero reclamar.") == "Protocolo EM-20261101-0001."
+    assert agent.reply("Qual era o protocolo mesmo?") == "O seu protocolo é o EM-20261101-0001."
+    assert len(llm.requests) == 3  # no retry: the protocol came from the tool
+
+
+def test_unknown_protocol_code_after_escalation_is_guarded(build_esc: Any) -> None:
+    llm = FakeLLM(
+        [
+            tool_calls(call("escalate_to_human", ESCALATE)),
+            text("Protocolo EM-20261101-0001."),
+            text("Abri outro: protocolo EM-20261101-0777."),
+            text("Pode falar com a equipe pelos contatos."),
+        ]
+    )
+    agent, _ = build_esc(llm)
+    agent.reply("Quero reclamar.")
+    assert agent.reply("Abre outro?") == "Pode falar com a equipe pelos contatos."
+
+
+def test_reply_without_protocol_is_untouched(build_esc: Any) -> None:
+    llm = FakeLLM([text("Oi! Como posso ajudar?")])
+    agent, _ = build_esc(llm)
+    assert agent.reply("oi") == "Oi! Como posso ajudar?"
+    assert len(llm.requests) == 1
