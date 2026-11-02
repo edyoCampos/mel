@@ -154,10 +154,19 @@ def test_respects_retry_after_header() -> None:
 
 def test_retry_after_is_capped() -> None:
     # 60 s: per-minute token quotas (Groq free tier: 8000 TPM) reset within a minute (AS-73)
-    limited = http_error(openai.RateLimitError, 429, **{"retry-after": "120"})
+    limited = http_error(openai.RateLimitError, 429, **{"retry-after": "60"})
     client, _, sleeps = make_client([limited, completion()])
     client.complete([Message(role="user", content="oi")])
     assert sleeps == [60.0]
+
+
+def test_gives_up_at_once_when_retry_after_exceeds_cap() -> None:
+    """A daily quota answers retry-after: 650; waiting 2 x 60 s cannot help (AS-75)."""
+    limited = http_error(openai.RateLimitError, 429, **{"retry-after": "650"})
+    client, stub, sleeps = make_client([limited, completion()])
+    with pytest.raises(LLMError, match="650 s"):
+        client.complete([Message(role="user", content="oi")])
+    assert len(stub.calls) == 1 and sleeps == []
 
 
 def test_retry_after_below_cap_is_honored() -> None:
