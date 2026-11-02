@@ -336,7 +336,9 @@ class StoreData:
                 continue
             if flt.electric is not None and self._is_electric(product) != flt.electric:
                 continue
-            if text and text not in search_key(f"{product.name} {product.description}"):
+            # Whole words only: "kala" must not match "Kalani"
+            haystack = f" {search_key(f'{product.name} {product.description}')} "
+            if text and f" {text} " not in haystack:
                 continue
             results.append((price, product.name, product))
         results.sort(key=lambda r: (r[0].amount, r[1]))
