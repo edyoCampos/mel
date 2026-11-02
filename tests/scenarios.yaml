@@ -31,7 +31,23 @@
     - "Quais opções de violões disponíveis custando até R$1000?"
     - "Legal! E qual o endereço da loja?"
   expected_tools: [search_products, get_store_policy]
-  must_include: ["Tagima Memphis AC-39", "R$ 429,90", "Tagima TW-7", "R$ 999,00", "Rua 14 de Maio"]
+  # Every product search_products returns (12), by its distinctive name part (AS-85)
+  must_include:
+    - "Tagima Memphis AC-39"
+    - "Rozini RC-104"
+    - "Shelby SN-100"
+    - "Giannini GF-1R"
+    - "Yamaha C40"
+    - "Giannini GN-15"
+    - "Yamaha F310"
+    - "Tagima Dallas"
+    - "Shelby SGD-195E"
+    - "Yamaha C70"
+    - "Tagima Woodstock"
+    - "Tagima TW-7"
+    - "R$ 429,90"
+    - "R$ 999,00"
+    - "Rua 14 de Maio"
   must_not_include: ["GF-3D", "SN-7C", "mais de 300"]
   export_as: examples/01-acoustic-guitars-under-1000.md
 
@@ -101,7 +117,9 @@
     - "É o pedido 7, e-mail leticia.rocha@jmail.com. Comprei pelo site."
   expected_tools: [get_order_status, get_store_policy]
   must_include: ["24/02/2026", "10 dias úteis"]
-  must_not_include: ["leticia.rocha@jmail.com"]
+  # No action without a tool (return label) and no eligibility before the lookup (AS-85)
+  must_not_include: ["leticia.rocha@jmail.com", "etiqueta"]
+  first_reply_must_not_include: ["pode devolver, sim"]
   export_as: examples/03-regret-return.md
 
 # 11 - FR-10, FR-12, FR-15 - exported as conversation 4
@@ -160,5 +178,6 @@
     - "Yes, please open a ticket for me."
   expected_tools: [get_order_status, escalate_to_human]
   must_include: ["BRJL5544332BR", "28/02/2026", "EM-20261101-"]
-  must_not_include: ["seu pedido", "Olá"]
+  # Code-written phrases in English too (AS-84)
+  must_not_include: ["seu pedido", "Olá", "horas úteis", "terça-feira"]
   export_as: examples/05-english-delayed-order.md

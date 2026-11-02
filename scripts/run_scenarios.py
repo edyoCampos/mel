@@ -44,6 +44,7 @@ class Scenario:
     forbid_tools: bool = False
     must_include: list[str] = field(default_factory=list)
     must_not_include: list[str] = field(default_factory=list)
+    first_reply_must_not_include: list[str] = field(default_factory=list)
     export_as: str | None = None
     tag: str | None = None
 
@@ -61,6 +62,7 @@ class Scenario:
             forbid_tools=bool(data.get("forbid_tools", False)),
             must_include=list(data.get("must_include") or []),
             must_not_include=list(data.get("must_not_include") or []),
+            first_reply_must_not_include=list(data.get("first_reply_must_not_include") or []),
             export_as=data.get("export_as"),
             tag=data.get("tag"),
         )
@@ -95,7 +97,7 @@ def select(items: Iterable[Scenario], only: str | None, include_v3: bool) -> lis
     return [s for s in chosen if include_v3 or s.tag != "v3"]
 
 
-def check(scenario: Scenario, replies: str, tools: list[str]) -> list[str]:
+def check(scenario: Scenario, replies: str, tools: list[str], first_reply: str = "") -> list[str]:
     failures = []
     for tool in scenario.expected_tools:
         if tool not in tools:
@@ -109,6 +111,9 @@ def check(scenario: Scenario, replies: str, tools: list[str]) -> list[str]:
     for needle in scenario.must_not_include:
         if needle.lower() in lowered:
             failures.append(f"must not include: {needle!r}")
+    for needle in scenario.first_reply_must_not_include:
+        if needle.lower() in first_reply.lower():
+            failures.append(f"first reply must not include: {needle!r}")
     return failures
 
 
@@ -140,7 +145,8 @@ def run_scenario(
         before = len(recorder.calls)
         reply = agent.reply(message)
         turns.append((message, reply, recorder.calls[before:]))
-    failures = check(scenario, "\n".join(t[1] for t in turns), recorder.calls)
+    first_reply = turns[0][1] if turns else ""
+    failures = check(scenario, "\n".join(t[1] for t in turns), recorder.calls, first_reply)
     return ScenarioResult(
         scenario_id=scenario.id,
         passed=not failures,
