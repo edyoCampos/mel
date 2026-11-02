@@ -30,6 +30,7 @@ from emporio.tools import (
 )
 from tests.fakes import FakeLLM, call, text, tool_calls
 
+ORDER_ARGS = '{"order_id": 8, "email": "ana@example.com"}'
 TEMPLATE = "You are Mel.\nNow: {weekday}, {now_local}.\n{store_status}"
 SUNDAY = datetime(2026, 11, 1, 10, 0, tzinfo=STORE_TZ)
 TUESDAY = datetime(2026, 11, 3, 10, 0, tzinfo=STORE_TZ)
@@ -191,6 +192,17 @@ def test_tool_call_limit_returns_fallback(build: Any) -> None:
     executed = [e for e in recorder.events if e.kind == "tool_call"]
     assert len(executed) == 6
     assert recorder.events[-1].kind == "limit_reached"
+
+
+def test_limit_event_lists_the_refused_calls(build: Any) -> None:
+    script = [tool_calls(call("ping", "{}", f"c{i}")) for i in range(6)]
+    refused = tool_calls(call("ping", "{}", "r1"), call("get_order_status", ORDER_ARGS, "r2"))
+    agent, recorder = build(FakeLLM([*script, refused]))
+    agent.reply("loop")
+    event = recorder.events[-1]
+    assert event.kind == "limit_reached"
+    assert "refused: ping {}, get_order_status" in event.summary
+    assert "ana@example.com" not in event.summary  # contacts masked (NFR-03)
 
 
 def test_llm_error_returns_friendly_message(build: Any) -> None:

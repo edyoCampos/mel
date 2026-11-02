@@ -165,6 +165,15 @@ def test_failure_transcript_lists_guard_events(run: Any, tmp_path: Path) -> None
     assert "O Takamine GD20 custa caro." in content  # the rejected draft
 
 
+def test_failure_transcript_lists_the_tool_call_limit(run: Any, tmp_path: Path) -> None:
+    item = scenario()
+    loop = [tool_calls(call("get_product_details", '{"query": "gd20"}', f"c{i}")) for i in range(7)]
+    result = run(item, FakeLLM(loop))
+    content = runner.save_failure(result, item, tmp_path, model="m", stamp="s").read_text()
+    assert "limit_reached" in content
+    assert 'refused: get_product_details {"query": "gd20"}' in content
+
+
 def test_failure_transcripts_are_not_versioned() -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert runner.FAILURES_DIR.relative_to(ROOT).as_posix() + "/" in ignored
