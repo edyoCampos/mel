@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError, model_valida
 from emporio.models import Product, normalize_text
 from emporio.policies import MANUAL_VERSION, PolicyBook, PolicyTopic
 from emporio.services import (
+    CUSTOMER_LANGUAGE,
     STORE_TZ,
     CustomerVerifier,
     DelayAssessor,
@@ -30,7 +31,7 @@ from emporio.services import (
     ShippingRules,
     StoreHours,
     Window,
-    describe_opening_pt,
+    describe_opening,
     mask_email,
     mask_phone,
 )
@@ -514,6 +515,7 @@ class GetOrderStatusTool(Tool):
             raise ToolError("verification_failed", VERIFICATION_FAILED)
 
         today = self.context.now().astimezone(STORE_TZ).date()
+        language = CUSTOMER_LANGUAGE.get()
         items = []
         for item in data.order_items(order.id):
             product = data.get_product(item.product_id)
@@ -548,10 +550,10 @@ class GetOrderStatusTool(Tool):
                 "id": order.id,
                 "order_date": _fmt_date(order.order_date),
                 "status": order.status.value,
-                "status_label": order.status.label_pt,
+                "status_label": order.status.label(language),
                 "items": items,
                 "total": str(order.total),
-                "payment_method": order.payment_method.label_pt,
+                "payment_method": order.payment_method.label(language),
                 "tracking_code": order.tracking_code,
                 "estimated_delivery": _fmt_date(order.estimated_delivery),
                 "cancellation_reason": order.notes if order.status.value == "cancelled" else None,
@@ -637,7 +639,7 @@ STORE_CONTACTS = {
     "email": "contato@emporiodamusica.com.br",  # A-02
     "address": "Rua 14 de Maio, 3200 — Centro, Campo Grande/MS, CEP 79202-333",
 }
-RESPONSE_TIME = "até 24 horas úteis"  # policy 7.3
+RESPONSE_TIME = {"pt": "até 24 horas úteis", "en": "within 24 business hours"}  # policy 7.3
 _EMAIL = re.compile(r"[\w.+-]+@[\w-]+(\.[\w-]+)+")
 _PHONE = re.compile(r"\(?\d{2}\)?[\s-]?\d{4,5}-?\d{4}")
 _hours = StoreHours()
@@ -693,18 +695,19 @@ class EscalateToHumanTool(Tool):
             }
         )
         status = _hours.status(now)
+        language = CUSTOMER_LANGUAGE.get()
         next_opening = None
         note = None
         if not status.is_open and status.next_opening is not None:
             opening = status.next_opening
-            next_opening = describe_opening_pt(opening)
+            next_opening = describe_opening(opening, language)
             note = (
                 "Store is closed now: tell the customer the team replies from the next "
                 "opening (R-15)."
             )
         return {
             "protocol": protocol,
-            "response_time": RESPONSE_TIME,
+            "response_time": RESPONSE_TIME[language],
             "store_open_now": status.is_open,
             "next_opening": next_opening,
             "contacts": STORE_CONTACTS,

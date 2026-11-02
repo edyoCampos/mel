@@ -16,7 +16,15 @@ from importlib.resources import files
 from typing import Any, Protocol
 
 from emporio.llm import LLMClient, LLMError, Message
-from emporio.services import STORE_TZ, StoreHours, mask_email, mask_phone
+from emporio.services import (
+    CUSTOMER_LANGUAGE,
+    STORE_TZ,
+    Language,
+    StoreHours,
+    detect_language,
+    mask_email,
+    mask_phone,
+)
 from emporio.tools import ToolRegistry
 
 FALLBACK_ERROR = (
@@ -49,103 +57,6 @@ LANGUAGE_NUDGE = (
     "The customer's latest message is in English. Rewrite your reply entirely in English, "
     "keeping every code, date and amount exactly as the tools returned them."
 )
-# Function words that exist in only one of the two languages ("a", "no", "do" are in both).
-_EN_WORDS = frozenset(
-    [
-        "the",
-        "is",
-        "are",
-        "was",
-        "my",
-        "your",
-        "you",
-        "i",
-        "me",
-        "where",
-        "what",
-        "when",
-        "how",
-        "why",
-        "please",
-        "yes",
-        "thanks",
-        "thank",
-        "hi",
-        "hello",
-        "and",
-        "to",
-        "for",
-        "with",
-        "can",
-        "could",
-        "would",
-        "will",
-        "it",
-        "this",
-        "that",
-        "have",
-        "has",
-        "order",
-        "ticket",
-        "of",
-    ]
-)
-_PT_WORDS = frozenset(
-    [
-        "o",
-        "os",
-        "as",
-        "de",
-        "da",
-        "das",
-        "dos",
-        "que",
-        "é",
-        "não",
-        "seu",
-        "sua",
-        "meu",
-        "minha",
-        "para",
-        "com",
-        "um",
-        "uma",
-        "você",
-        "está",
-        "estou",
-        "por",
-        "em",
-        "na",
-        "mas",
-        "já",
-        "oi",
-        "olá",
-        "obrigado",
-        "obrigada",
-        "pedido",
-        "tudo",
-        "bem",
-        "cadê",
-        "quero",
-        "posso",
-    ]
-)
-_WORD = re.compile(r"[^\W\d_]+")
-
-
-def _language_score(text: str) -> tuple[int, int]:
-    words = _WORD.findall(text.lower())
-    return sum(w in _EN_WORDS for w in words), sum(w in _PT_WORDS for w in words)
-
-
-def _is_english(text: str) -> bool:
-    english, portuguese = _language_score(text)
-    return english >= 2 and english > portuguese
-
-
-def _is_portuguese(text: str) -> bool:
-    english, portuguese = _language_score(text)
-    return portuguese >= 2 and portuguese > english
 
 
 def load_system_prompt_template() -> str:
@@ -215,6 +126,8 @@ class Agent:
         self._tracer = tracer
         self._history: list[Message] = []
         self._protocols: set[str] = set()  # returned by escalate_to_human (AS-80)
+        # Customer language, kept when a message is ambiguous ("ok"); Portuguese by default
+        self._language: Language = "pt"
 
     @property
     def history(self) -> list[Message]:
@@ -223,6 +136,7 @@ class Agent:
     def reset(self) -> None:
         self._history.clear()
         self._protocols.clear()
+        self._language = "pt"
 
     def _invents_protocol(self, content: str) -> bool:
         if not _PROTOCOL_WORD.search(content):
@@ -240,7 +154,7 @@ class Agent:
         content = self._template.format(
             now_local=now.strftime("%d/%m/%Y %H:%M"),
             weekday=_WEEKDAYS[now.weekday()],
-            store_status=self._store_hours.describe(now),
+            store_status=self._store_hours.describe(now, self._language),
         )
         return Message(role="system", content=content)
 
@@ -248,10 +162,19 @@ class Agent:
         if not user_message.strip():
             return EMPTY_MESSAGE_REPLY
         self._history.append(Message(role="user", content=user_message.strip()))
+        self._language = detect_language(user_message) or self._language
+        # Tools write customer-facing phrases in this language (AS-84)
+        token = CUSTOMER_LANGUAGE.set(self._language)
+        try:
+            return self._run_turn()
+        finally:
+            CUSTOMER_LANGUAGE.reset(token)
+
+    def _run_turn(self) -> str:
         calls_done = 0
         nudged = False
         language_nudged = False
-        english = _is_english(user_message)
+        english = self._language == "en"
         protocols_before = len(self._protocols)
         schemas = self._registry.schemas()
         while True:
@@ -279,7 +202,7 @@ class Agent:
                         return self._finish(FALLBACK_NO_PROTOCOL)
                     nudged = True
                     continue
-                if english and not language_nudged and _is_portuguese(content):
+                if english and not language_nudged and detect_language(content) == "pt":
                     self._emit(
                         TraceEvent("language_guard", None, None, content[:_SUMMARY_LIMIT], 0)
                     )

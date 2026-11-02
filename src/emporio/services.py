@@ -6,14 +6,49 @@ Nothing here reads files, the network or the clock: "now" is always passed in (D
 from __future__ import annotations
 
 import re
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import date, datetime, time, timedelta
+from typing import Literal
 from zoneinfo import ZoneInfo
 
 import holidays
 
 from emporio.models import Customer, Order, OrderStatus, Product, Promotion, normalize_text
 from emporio.money import Money
+
+# ---------- Customer language (D-19, AS-82, AS-84) ----------
+
+Language = Literal["pt", "en"]
+# The language of the customer's conversation, set by the Agent for each turn and read by the
+# tools that write customer-facing phrases (next opening, response time, order labels).
+CUSTOMER_LANGUAGE: ContextVar[Language] = ContextVar("customer_language", default="pt")
+
+# Function words that exist in only one of the two languages ("a", "no", "do" are in both).
+_EN_WORDS = frozenset(
+    "the is are was my your you i me where what when how why please yes thanks thank hi "  # noqa: SIM905
+    "hello and to for with can could would will it this that have has order ticket of".split()
+)
+_PT_WORDS = frozenset(
+    "o os as de da das dos que é não seu sua meu minha para com um uma você está estou "  # noqa: SIM905
+    "por em na mas já oi olá obrigado obrigada pedido tudo bem cadê quero posso quanto custa "
+    "qual quais tem vocês".split()
+)
+_WORD = re.compile(r"[^\W\d_]+")
+
+
+def detect_language(text: str) -> Language | None:
+    """'en' or 'pt' when at least 2 function words of one language outnumber the other's;
+    None for short or ambiguous text ("ok", a product name)."""
+    words = _WORD.findall(text.lower())
+    english = sum(w in _EN_WORDS for w in words)
+    portuguese = sum(w in _PT_WORDS for w in words)
+    if english >= 2 and english > portuguese:
+        return "en"
+    if portuguese >= 2 and portuguese > english:
+        return "pt"
+    return None
+
 
 # ---------- Installments (R-03, A-03) ----------
 
@@ -313,8 +348,10 @@ WEEKDAYS_PT = [
 ]
 
 
-def describe_opening_pt(opening: datetime) -> str:
-    """'segunda-feira, 09/11/2026, às 09:00': ready to copy for the customer (AS-80)."""
+def describe_opening(opening: datetime, language: Language = "pt") -> str:
+    """'terça-feira, 03/11/2026, às 09:00' or 'Tuesday, 03/11/2026, at 09:00' (AS-80, AS-84)."""
+    if language == "en":
+        return f"{_WEEKDAYS[opening.weekday()]}, {opening:%d/%m/%Y}, at {opening:%H:%M}"
     return f"{WEEKDAYS_PT[opening.weekday()]}, {opening:%d/%m/%Y}, às {opening:%H:%M}"
 
 
@@ -377,8 +414,9 @@ class StoreHours:
             day += timedelta(days=1)
         raise RuntimeError("No opening found in the next 30 days")
 
-    def describe(self, now: datetime) -> str:
-        """One English line for the system prompt (D-18)."""
+    def describe(self, now: datetime, language: Language = "pt") -> str:
+        """One English line for the system prompt (D-18); the next opening is written in the
+        customer's language, ready to copy."""
         status = self.status(now)
         local = status.now_local
         head = f"{_WEEKDAYS[local.weekday()]}, {local:%d/%m/%Y %H:%M} (America/Campo_Grande)."
@@ -386,7 +424,7 @@ class StoreHours:
             return f"{head} Store is OPEN until {status.closes_at:%H:%M}."
         assert status.next_opening is not None
         opening = status.next_opening
-        line = f"{head} Store is CLOSED. Next opening: {describe_opening_pt(opening)}"
+        line = f"{head} Store is CLOSED. Next opening: {describe_opening(opening, language)}"
         skipped = []
         day = local.date() + timedelta(days=1)
         while day < opening.date():

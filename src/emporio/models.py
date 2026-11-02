@@ -67,6 +67,10 @@ class OrderStatus(StrEnum):
         """Portuguese label shown to customers (R-11)."""
         return _ORDER_STATUS_PT[self.value]
 
+    def label(self, language: str = "pt") -> str:
+        """Label in the customer's language, 'pt' or 'en' (AS-84)."""
+        return self.value if language == "en" else self.label_pt
+
 
 class PaymentKind(StrEnum):
     PIX = "pix"
@@ -102,6 +106,18 @@ class PaymentMethod(BaseModel):
         return {
             PaymentKind.PIX: "PIX",
             PaymentKind.DEBIT: "cartão de débito",
+            PaymentKind.BOLETO: "boleto",
+        }[self.kind]
+
+    def label(self, language: str = "pt") -> str:
+        """Label in the customer's language, 'pt' or 'en' (AS-84)."""
+        if language != "en":
+            return self.label_pt
+        if self.kind is PaymentKind.CREDIT:
+            return f"credit card in {self.installments}x"
+        return {
+            PaymentKind.PIX: "PIX",
+            PaymentKind.DEBIT: "debit card",
             PaymentKind.BOLETO: "boleto",
         }[self.kind]
 
