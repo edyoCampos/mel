@@ -134,8 +134,12 @@
   now: "2026-11-03T10:00:00-04:00"
   messages: ["Quando começa a Black Friday? Vai ter 30% off em tudo?"]
   expected_tools: []
+  # Citing the manual's usual range is transparency (§7.3); promising a discount or a start
+  # date is forbidden (FR-15, AS-79)
   must_include: ["redes sociais"]
-  must_not_include: ["vai ter 30%", "30% off em tudo"]
+  must_not_include:
+    ["vai ter 30%", "30% off em tudo", "início do mês", "começa no dia", "a partir do dia",
+     "27/11", "28/11"]
 
 # 14 - FR-13, R-15, R-16 [v3]
 - id: complaint-out-of-hours
