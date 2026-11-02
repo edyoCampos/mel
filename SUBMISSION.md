@@ -61,10 +61,12 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-Final run: DeepSeek `deepseek-flash`, 02/11, final code: **13/15** (two model-behavior failures:
-alternatives not taken from the tool; a date without the year). Earlier: Groq 15/15 on pre-fix code,
-then DeepSeek 12/15 before three fixes. Groq stays recommended (free); examples ran on DeepSeek, as
-Groq's free tier fits one full run a day. History: [`docs/scenarios.md`](docs/scenarios.md).
+Final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after completing the date-check
+decision (AS-87), `order-verified-by-phone` passes on its own run → **14/15**; one open failure:
+`out-of-stock-alternatives` (in the final run the model did not present the alternatives returned
+by the tool and searched on its own; the transcript was not kept). Earlier: Groq 15/15 on pre-fix
+code, then DeepSeek 12/15 before three fixes. Groq stays recommended (free); examples ran on
+DeepSeek, as Groq's free tier fits one full run a day. History: [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 

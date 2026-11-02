@@ -37,15 +37,15 @@ adapter, changing only environment variables.
 
 ## Results
 
-**Final run: DeepSeek `deepseek-flash`, 02/11/2026, final code: 13/15.** Failed:
+**Final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after completing the date-check
+decision (AS-87), `order-verified-by-phone` passes on its own run → 14/15; one open failure:
+`out-of-stock-alternatives`.**
 
-- `out-of-stock-alternatives`: Mel said the GF-3D is out of stock and offered two other Giannini
-  guitars she looked up herself, not the alternatives the tool returned (the Shelby SGD-195E at
-  R$ 799,00 was expected).
-- `order-verified-by-phone`: the right order, tracking and delay, but the estimate was written
-  "28/02" without the year (the check expects "28/02/2026").
-
-Both are model behavior on a correct tool result; they were documented, not fixed.
+- `out-of-stock-alternatives` (open): in the final run the model did not present the alternatives
+  returned by the tool and searched on its own; the transcript was not kept.
+- `order-verified-by-phone` (passes on its own run): it failed in the final run because its check
+  still required "28/02/2026", while AS-87 had already made the year optional. The check is now
+  "28/02", and `order-wrong-contact` forbids "28/02" (AS-89).
 
 History:
 
@@ -54,8 +54,16 @@ History:
 | 01/11/2026 | Groq `openai/gpt-oss-120b` | Full runs 2 and 3 | 8/15, then 11/15 | Each failure was fixed in code (prices composed by the tools, active campaigns listed by the policy tool, the protocol guard, retries on 502/503), not by editing the expected text |
 | 02/11/2026 | Groq | Four failing scenarios, one at a time | 4/4 | The language guard was added for the English scenario |
 | 02/11/2026 | Groq | Full run, morning | 15/15 | 41 calls, about 108k tokens; code before the review fixes |
-| 02/11/2026 | DeepSeek `deepseek-flash` | First full run, after the review fixes | 12/15 | Three fixes followed: two date checks were stricter than the requirement ("24/02" and "28/02" now match), and one general prompt rule (present the alternatives the tool returned, without asking first) |
+| 02/11/2026 | DeepSeek `deepseek-flash` | First full run, after the review fixes | 12/15 | Three fixes followed: date checks stricter than the requirement (AS-87: `regret-within-window` and `english-delayed-order-escalation` now check "24/02" and "28/02"; the two order scenarios were missed and completed later, AS-89), and one general prompt rule (present the alternatives the tool returned, without asking first) |
 | 02/11/2026 | DeepSeek | The three scenarios, one at a time | 3/3 | Produced the current `examples/` (reviewed and approved) |
 | 02/11/2026 | DeepSeek | Final full run, no `--export` | 13/15 | See above |
+| 02/11/2026 | DeepSeek | `order-verified-by-phone` alone, after AS-89 | 1/1 | Result: 14/15 |
 
 Results vary between runs even at temperature 0: a pass is a measurement, not a guarantee.
+
+## With more time
+
+- A guard in the `Agent` for unavailable products, following the D-12 pattern: when
+  `get_product_details` returns alternatives and the answer names none of them, retry once.
+- The runner saving the transcript of every failing scenario, so failures can be reviewed after
+  the run.

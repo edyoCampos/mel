@@ -205,16 +205,19 @@ taken for each.
 
 Development followed TDD: the history shows each `test:` commit before its `feat:` commit.
 
-**Scenario results (final run): DeepSeek `deepseek-flash`, 02/11, final code: 13/15.** The two
-failures are model behavior on correct tool results: in `out-of-stock-alternatives` Mel offered
-other Giannini guitars she looked up instead of the alternatives the tool returned, and in
-`order-verified-by-phone` she wrote the delivery estimate as "28/02" without the year.
+**Scenario results: final full run on DeepSeek `deepseek-flash`, 02/11: 13/15; after
+completing the date-check decision (AS-87), `order-verified-by-phone` passes on its own run →
+14/15; one open failure: `out-of-stock-alternatives`.** In the final run the model did not present
+the alternatives returned by the tool and searched on its own; the transcript was not kept.
+`order-verified-by-phone` had failed only because its check still required the year ("28/02/2026")
+after AS-87 had made the year optional in the other date checks.
 
 How we got there, all on 02/11: Groq `openai/gpt-oss-120b` passed 15/15 in the morning (code
 before the review fixes; 41 calls, about 108k tokens). After the review fixes, the first full run
-on DeepSeek passed 12/15; three changes followed (two date checks that were stricter than the
-requirement, and one general prompt rule: present the alternatives the tool returned, without
-asking first), and then the final run above.
+on DeepSeek passed 12/15; three changes followed (date checks that were stricter than the
+requirement, AS-87, and one general prompt rule: present the alternatives the tool returned,
+without asking first), and then the final run above. AS-87 had missed two order scenarios; they
+were completed afterwards (AS-89).
 
 These are results **measured on that day, not a guarantee**: the model's answers vary between
 runs even at temperature 0, and free tiers sometimes fail with 429/502/503, so a later run can
@@ -247,7 +250,7 @@ with DeepSeek `deepseek-flash` from the delivered code and reviewed:
 - The data does not say how a purchase was made nor when it was actually received (A-10, A-11).
 - History is lost when the CLI closes; escalation protocols go only to a local log file.
 - The metropolitan region is reduced to the city of Campo Grande (A-24).
-- Answers vary between runs: the scenario result (13/15 in the final run of 02/11/2026) is a
+- Answers vary between runs: the scenario result (14/15 on 02/11/2026) is a
   measurement, not a guarantee. Scenarios check required and forbidden text, so a correct answer worded
   differently can still fail.
 - Groq's free tier fits about one full scenario run per day (about 108k tokens); rate limits
@@ -263,6 +266,10 @@ with DeepSeek `deepseek-flash` from the delivered code and reviewed:
 - An LLM judge for tone; property-based tests for the pricing rules; `mypy --strict`.
 - A WhatsApp webhook and a small web UI.
 - Hybrid search for the manual if it grows.
+- A guard in the `Agent` for unavailable products, following the D-12 pattern: when
+  `get_product_details` returns alternatives and the answer names none of them, retry once.
+- The scenario runner saving the transcript of every failing scenario, so failures can be
+  reviewed after the run.
 - Fewer input tokens per call: a leaner prompt, compact tool schemas, and prompt caching where
   the provider offers it.
 
