@@ -353,7 +353,12 @@ class StoreData:
             owners = [p for p in self._products.values() if codes & set(search_key(p.name).split())]
             if len(owners) == 1:
                 return [NameMatch(owners[0], 100.0)]
-        scored = [NameMatch(p, _name_score(query, p.name)) for p in self._products.values()]
+        # Query words that are whole words of some product name ("kala") must be whole words of
+        # the match too, so "Kala" does not bring "Kalani"; other words are left to fuzzy matching
+        names = {p.id: set(search_key(p.name).split()) for p in self._products.values()}
+        known = {word for word in query.split() if any(word in n for n in names.values())}
+        pool = [p for p in self._products.values() if known <= names[p.id]]
+        scored = [NameMatch(p, _name_score(query, p.name)) for p in pool or self._products.values()]
         scored.sort(key=lambda m: (-m.score, m.product.id))
         return scored[:limit]
 
