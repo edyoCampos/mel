@@ -84,6 +84,28 @@ class PriceQuote:
     pix_price: Money | None  # list price minus 5%; None when a promotion is active (R-02)
     best_installments: InstallmentPlan
 
+    # Ready-to-copy strings: the model copies them instead of composing prices (AS-78)
+    @property
+    def price_display(self) -> str:
+        """'de R$ 549,00 por R$ 439,20 (20% off)' with an active promotion, else 'R$ 2.199,00'."""
+        if self.active_promotion is not None and self.promotional_price is not None:
+            return (
+                f"de {self.list_price} por {self.promotional_price} "
+                f"({self.active_promotion.discount_percent}% off)"
+            )
+        return str(self.list_price)
+
+    @property
+    def pix_display(self) -> str | None:
+        """'R$ 2.089,05 no PIX'; None with an active promotion (R-02)."""
+        return f"{self.pix_price} no PIX" if self.pix_price is not None else None
+
+    @property
+    def installments_display(self) -> str:
+        """'até 12x de R$ 183,25 sem juros' (single payment keeps describe_pt)."""
+        plan = self.best_installments.describe_pt()
+        return plan if self.best_installments.count == 1 else f"até {plan}"
+
 
 class PricingService:
     def __init__(self, installments: InstallmentCalculator | None = None) -> None:

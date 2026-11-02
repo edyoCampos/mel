@@ -208,7 +208,9 @@ def product_summary(data: StoreData, product: Product) -> dict[str, Any]:
         "promotion": promotion,
         "pix_price": str(quote.pix_price) if quote.pix_price is not None else None,
         "best_installments": quote.best_installments.describe_pt(),
-    }
+        "price_display": quote.price_display,
+        "installments_display": quote.installments_display,
+    } | ({"pix_display": quote.pix_display} if quote.pix_display is not None else {})
 
 
 # ---------- search_products (FR-02, FR-16) ----------
@@ -374,13 +376,6 @@ class GetProductDetailsTool(Tool):
             for p in data.promotions_for(product.id)
             if not p.is_active
         ]
-        promotion_display = None
-        if summary["promotion"] is not None:
-            promotion = summary["promotion"]
-            promotion_display = (
-                f"de {summary['price']} por {promotion['promotional_price']} "
-                f"({promotion['discount_percent']}% off)"
-            )
         notes = []
         if summary["promotion"] is not None:
             notes.append("Promotions do not stack with the PIX discount.")
@@ -409,8 +404,10 @@ class GetProductDetailsTool(Tool):
                 "current_price": summary["current_price"],
                 "pix_price": summary["pix_price"],
                 "best_installments": summary["best_installments"],
-                "promotion_display": promotion_display,
-            },
+                "price_display": summary["price_display"],
+                "installments_display": summary["installments_display"],
+            }
+            | ({"pix_display": summary["pix_display"]} if "pix_display" in summary else {}),
             "delivery": self._delivery(product),
             "alternatives": self._alternatives(product),
             "notes": notes,
