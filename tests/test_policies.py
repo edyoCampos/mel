@@ -82,3 +82,10 @@ def test_scope_has_accessories_rule(book: PolicyBook) -> None:
 
 def test_contact_section_does_not_include_section_2(book: PolicyBook) -> None:
     assert "Horário de Funcionamento" not in book.get(PolicyTopic.CONTACT).text
+
+
+def test_returns_includes_the_legal_warranty(book: PolicyBook) -> None:
+    """A defect within 90 days of receipt is a warranty case, asked as a return."""
+    section = book.get(PolicyTopic.RETURNS)
+    assert "8" in section.sections
+    assert "garantia legal de 90 (noventa) dias" in section.text

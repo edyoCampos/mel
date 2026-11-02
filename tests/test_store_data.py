@@ -223,3 +223,17 @@ def test_getters_return_none_for_unknown_ids(data: StoreData) -> None:
     assert data.get_product(9999) is None
     assert data.get_order(9999) is None
     assert data.get_customer(9999) is None
+
+
+# ---------- Text search matches whole words ----------
+
+
+def test_text_search_kala_does_not_bring_kalani(data: StoreData) -> None:
+    names = [p.name for p in data.search_products(ProductFilter(text="Kala"))]
+    assert names and all(name.startswith("Kala ") for name in names)
+    assert not any("Kalani" in name for name in names)
+
+
+def test_text_search_kalani_brings_kalani(data: StoreData) -> None:
+    names = [p.name for p in data.search_products(ProductFilter(text="kalani"))]
+    assert names and all(name.startswith("Kalani ") for name in names)

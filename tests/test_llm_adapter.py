@@ -8,7 +8,14 @@ import httpx2 as httpx  # transport used by the openai SDK (transitive dependenc
 import openai
 import pytest
 
-from emporio.llm import LLMError, LLMSettings, Message, OpenAICompatibleClient, ToolCall
+from emporio.llm import (
+    LLMError,
+    LLMSettings,
+    Message,
+    OpenAICompatibleClient,
+    QuotaExceededError,
+    ToolCall,
+)
 
 KEY = "secret-test-key-123"
 SETTINGS = LLMSettings(base_url="https://example.test/v1/", api_key=KEY, model="test-model")
@@ -261,3 +268,12 @@ def test_tool_call_without_text_is_not_empty() -> None:
     client, stub, _ = make_client([completion(None, calls=[("c1", "ping", "{}")])])
     assert client.complete([Message(role="user", content="oi")]).tool_calls
     assert len(stub.calls) == 1
+
+
+def test_long_retry_after_raises_quota_error_with_the_wait() -> None:
+    limited = http_error(openai.RateLimitError, 429, **{"retry-after": "650"})
+    client, _, _ = make_client([limited])
+    with pytest.raises(QuotaExceededError) as caught:
+        client.complete([Message(role="user", content="oi")])
+    assert caught.value.retry_after_seconds == 650.0
+    assert isinstance(caught.value, LLMError)

@@ -18,7 +18,7 @@ from emporio.agent import (
     Agent,
     TraceEvent,
 )
-from emporio.llm import LLMError
+from emporio.llm import LLMError, QuotaExceededError
 from emporio.services import CUSTOMER_LANGUAGE, STORE_TZ, StoreHours
 from emporio.tools import (
     EscalateToHumanTool,
@@ -192,6 +192,23 @@ def test_tool_call_limit_returns_fallback(build: Any) -> None:
     executed = [e for e in recorder.events if e.kind == "tool_call"]
     assert len(executed) == 6
     assert recorder.events[-1].kind == "limit_reached"
+
+
+def test_provider_quota_gets_a_clear_message_with_the_wait(build: Any) -> None:
+    error = QuotaExceededError("rate limited by provider; retry in 650 s", 650.0)
+    agent, recorder = build(FakeLLM([error]))
+    reply = agent.reply("oi")
+    assert reply == "O provedor gratuito atingiu o limite de uso. Tente de novo em 11 minutos."
+    event = recorder.events[-1]
+    assert event.kind == "llm_error"
+    assert "retry in 650 s" in event.summary  # the technical reason, shown by --trace
+
+
+def test_provider_quota_of_under_a_minute_says_one_minute(build: Any) -> None:
+    agent, _ = build(FakeLLM([QuotaExceededError("quota", 61.0)]))
+    assert agent.reply("oi").endswith("Tente de novo em 2 minutos.")
+    agent, _ = build(FakeLLM([QuotaExceededError("quota", 45.0)]))
+    assert agent.reply("oi").endswith("Tente de novo em 1 minuto.")
 
 
 def test_limit_event_lists_the_refused_calls(build: Any) -> None:
