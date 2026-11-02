@@ -29,7 +29,7 @@ class PolicyTopic(StrEnum):
 TOPIC_SECTIONS: dict[PolicyTopic, tuple[str, ...]] = {
     PolicyTopic.HOURS: ("2",),
     PolicyTopic.PAYMENT: ("3",),
-    PolicyTopic.RETURNS: ("4",),
+    PolicyTopic.RETURNS: ("4", "8"),  # a defect is a warranty case, often asked as a return
     PolicyTopic.SHIPPING: ("5",),
     PolicyTopic.PROMOTIONS: ("6",),
     PolicyTopic.WARRANTY: ("8",),
