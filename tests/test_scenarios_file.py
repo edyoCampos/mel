@@ -14,9 +14,15 @@ TOOLS = {
 ITEMS = runner.load_scenarios(ROOT / "tests" / "scenarios.yaml")
 
 
-def test_fifteen_scenarios_with_unique_ids() -> None:
-    assert len(ITEMS) == 15
-    assert len({s.id for s in ITEMS}) == 15
+def test_seventeen_scenarios_with_unique_ids() -> None:
+    assert len(ITEMS) == 17
+    assert len({s.id for s in ITEMS}) == 17
+
+
+def test_scenarios_from_the_independent_review() -> None:
+    by_id = {s.id: s for s in ITEMS}
+    assert "Kalani" in by_id["kala-not-kalani"].must_not_include
+    assert "garantia legal" in by_id["defect-legal-warranty"].must_include
 
 
 def test_v3_scenarios_are_tagged() -> None:
