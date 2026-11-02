@@ -58,6 +58,39 @@ LANGUAGE_NUDGE = (
     "keeping every code, date and amount exactly as the tools returned them."
 )
 
+# Alternatives guard (D-12 exception): when get_product_details returned an unavailable
+# product with alternatives and the reply names none of them, one retry with this instruction
+# (sent, never stored); a second miss is kept.
+ALTERNATIVES_NUDGE = (
+    "The product you looked up is unavailable. Present the alternatives returned by the tool "
+    "(the `alternatives` field of get_product_details), with their names and current prices, "
+    "without asking first."
+)
+_ALTERNATIVE_NAME_WORDS = 2  # brand and model ("Shelby SGD-195E"), enough to identify one
+
+
+def _unavailable_alternatives(payload: dict[str, Any]) -> list[str]:
+    """Names of the alternatives returned for an unavailable product, or [] otherwise."""
+    if payload.get("status") != "found":
+        return []
+    product = payload.get("product") or {}
+    if product.get("availability") == "available":
+        return []
+    return [str(item.get("name", "")) for item in payload.get("alternatives") or []]
+
+
+def _plain(text: str) -> str:
+    return text.translate(_PLAIN_HYPHENS).translate(_PLAIN_SPACES).casefold()
+
+
+def _names_any(content: str, names: list[str]) -> bool:
+    plain = _plain(content)
+    return any(
+        _plain(" ".join(name.split()[:_ALTERNATIVE_NAME_WORDS])) in plain
+        for name in names
+        if name.strip()
+    )
+
 
 def load_system_prompt_template() -> str:
     """The Mel's system prompt (prompts/system.md), with {now_local}, {weekday}, {store_status}."""
@@ -71,7 +104,7 @@ _SUMMARY_LIMIT = 160
 @dataclass(frozen=True)
 class TraceEvent:
     kind: str  # "tool_call" | "tool_result" | "llm_error" | "limit_reached" | "protocol_guard"
-    # | "language_guard"
+    # | "language_guard" | "alternatives_guard"
     name: str | None
     arguments: dict[str, Any] | None  # contacts masked (NFR-03)
     summary: str
@@ -174,6 +207,9 @@ class Agent:
         calls_done = 0
         nudged = False
         language_nudged = False
+        alternatives_nudged = False
+        # One list of alternative names per unavailable product looked up in this turn
+        unavailable: list[list[str]] = []
         english = self._language == "en"
         protocols_before = len(self._protocols)
         schemas = self._registry.schemas()
@@ -182,6 +218,8 @@ class Agent:
             extra = []
             if nudged and len(self._protocols) == protocols_before:
                 extra = [Message(role="system", content=PROTOCOL_NUDGE)]
+            if alternatives_nudged:
+                extra.append(Message(role="system", content=ALTERNATIVES_NUDGE))
             if language_nudged:
                 extra.append(Message(role="system", content=LANGUAGE_NUDGE))
             try:
@@ -201,6 +239,14 @@ class Agent:
                     if nudged:
                         return self._finish(FALLBACK_NO_PROTOCOL)
                     nudged = True
+                    continue
+                if not alternatives_nudged and any(
+                    not _names_any(content, names) for names in unavailable
+                ):
+                    self._emit(
+                        TraceEvent("alternatives_guard", None, None, content[:_SUMMARY_LIMIT], 0)
+                    )
+                    alternatives_nudged = True
                     continue
                 if english and not language_nudged and detect_language(content) == "pt":
                     self._emit(
@@ -225,6 +271,10 @@ class Agent:
                 payload = result.to_json()
                 if tool_call.name == "escalate_to_human" and result.ok:
                     self._protocols.add(str(result.payload.get("protocol")))
+                if tool_call.name == "get_product_details" and result.ok:
+                    names = _unavailable_alternatives(result.payload)
+                    if names:
+                        unavailable.append(names)
                 status = "ok" if result.ok else f"error:{result.payload.get('error')}"
                 self._emit(
                     TraceEvent(
