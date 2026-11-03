@@ -131,11 +131,14 @@ def run_scenario(
 ) -> ScenarioResult:
     started = time.monotonic()
     recorder = _Recorder()
+    # A new log on every run, so protocols start at 0001
+    escalation_log = workdir / f"{scenario.id}-escalations.jsonl"
+    escalation_log.unlink(missing_ok=True)
     context = ToolContext(
         data=data,
         policies=policies,
         now=lambda: scenario.now,
-        escalation_log=workdir / f"{scenario.id}-escalations.jsonl",
+        escalation_log=escalation_log,
     )
     agent = Agent(
         llm=llm,
