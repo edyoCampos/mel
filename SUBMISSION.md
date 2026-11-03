@@ -61,14 +61,14 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **17/17**. Earlier the same day:
-Groq 15/15 on the code before the review fixes, then DeepSeek 12/15, 13/15, 14/15 and 15/15;
-each failure was fixed in code (an alternatives guard, a product name lookup that ignores category
-words) or in a check stricter than the requirement (dates without the year). An independent
-review then found two bugs (searching "Kala" also brought "Kalani"; the legal warranty was missing
-from the returns policy), fixed and covered by two new scenarios. The runner saves the transcript
-of every failing scenario. Groq stays recommended (free); the final runs used DeepSeek, as Groq's
-free tier fits one full run a day. Every run: [`docs/scenarios.md`](docs/scenarios.md).
+Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **20/20**. Tested with DeepSeek
+`deepseek-flash` (final run) and with Groq `openai/gpt-oss-120b` (15/15 on an earlier version of
+the code); Groq is recommended because it is free. On the way, DeepSeek runs gave 12/15, 13/15,
+14/15, 15/15, 17/17 and 19/20; two independent reviews found bugs (partial-word search, the legal
+warranty missing from returns, escalations that did not identify the customer, three candidates
+only, multi-word search); each failure was fixed in code and covered by a scenario. Each behavior
+has a `test:` commit with the failing test before the `feat:` commit; since the agent wrote both,
+they are usually only a few minutes apart. Every run: [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 
@@ -76,6 +76,9 @@ free tier fits one full run a day. Every run: [`docs/scenarios.md`](docs/scenari
 - Freight outside Campo Grande is not calculated (the manual requires ZIP code, weight and
   dimensions), and only national holidays are covered.
 - History is lost when the CLI closes; escalations go only to a local log file.
+- An order number plus e-mail or phone is not authentication (production needs a verification
+  code); two customers in the data share an e-mail; the model sometimes states something before
+  looking it up.
 
 ## How I used AI
 

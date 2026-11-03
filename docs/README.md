@@ -4,7 +4,7 @@
   persona, requirements with acceptance criteria, business rules).
 - [`architecture.md`](architecture.md): modules, the five tools, one turn step by step, the three
   guards and how the customer language reaches the tools.
-- [`scenarios.md`](scenarios.md): the 17 conversation scenarios, what each one checks, and the
+- [`scenarios.md`](scenarios.md): the 20 conversation scenarios, what each one checks, and the
   results.
 
 The R-xx (business rules), FR-xx and NFR-xx identifiers cited in the code and tests are defined
