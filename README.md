@@ -17,37 +17,51 @@ and reaches the model already formatted, e.g. `R$ 2.199,00`.
 
 ---
 
-## Quick start
+## Try it in 5 minutes
 
-Requirements: [uv](https://docs.astral.sh/uv/) (it installs Python 3.12 for you) and a free
-API key from **Groq** (default) or **Google Gemini** (alternative).
+Requirements: Python 3.12 and [uv](https://docs.astral.sh/uv/) (uv installs Python 3.12 for you),
+or [Docker](https://docs.docker.com/get-docker/) only. A free API key from Groq:
+<https://console.groq.com/keys>.
 
 ```bash
 git clone https://github.com/edyoCampos/mel.git
 cd mel
 make setup                 # uv sync: creates .venv from uv.lock
-cp .env.example .env       # then put your API key in .env
-make chat                  # talk to Mel in the terminal (type "sair" to quit)
+cp .env.example .env       # then put your Groq key in LLM_API_KEY
+make chat                  # interactive chat in the terminal
 ```
 
-Useful variants:
+The chat is interactive: you type each question as a customer, read Mel's answer, and type
+`sair` to quit. Useful variants:
 
 ```bash
 make chat-trace                                            # shows every tool call and result
-uv run python -m emporio chat --now 2026-11-01T10:00       # freezes the store clock (demos)
-make test                                                  # unit and integration tests, offline
-make scenarios                                             # conversation scenarios, real LLM
+uv run python -m emporio chat --now 2026-11-01T10:00       # freezes the clock (Sunday: store closed)
+make test                                                  # offline tests, no API key needed
+make scenarios                                             # 20 real conversations: needs the key, uses tokens
 ```
 
-Without Python, with [Docker](https://docs.docker.com/get-docker/) only:
-
-```bash
-cp .env.example .env       # put your API key in .env (values without quotes)
-make docker-chat           # docker build -t mel . && docker run -it --rm --env-file .env mel
-docker run --rm mel pytest -q                              # offline test suite inside the image
-```
-
+With Docker only: `make docker-chat` builds the image and starts the same chat (write the
+`.env` values without quotes); `docker run --rm mel pytest -q` runs the offline tests in it.
 The `.env` file is never copied into the image; the key is passed only at run time.
+
+Questions to copy, one per line:
+
+```text
+Quais opções de violões disponíveis custando até R$1000?
+Qual o endereço da loja?
+Quanto custa o Takamine GD20?
+Me arrependi da minha compra, posso devolver meu pedido?
+Pedido 7, e-mail leticia.rocha@jmail.com, comprei pelo site
+Quanto custa o Kala?
+Vocês têm cordas de guitarra?
+Hi! Where is my order 8? My email is anacarol.ferreira@coldmail.com
+```
+
+The fifth line answers Mel's request for the order data after the fourth. To switch provider,
+change `LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY` in `.env` (see
+[Choosing the model provider](#choosing-the-model-provider)); Groq's free plan limits tokens per
+minute and per day.
 
 ### Choosing the model provider
 
