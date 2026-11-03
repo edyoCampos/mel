@@ -26,7 +26,7 @@ from emporio.services import (
     mask_email,
     mask_phone,
 )
-from emporio.tools import ToolRegistry
+from emporio.tools import ToolRegistry, mask_contacts
 
 FALLBACK_ERROR = (
     "Desculpa, tive um problema técnico agora e não consegui consultar o sistema. "
@@ -138,6 +138,8 @@ def _masked_arguments(raw: str) -> dict[str, Any] | None:
         masked["email"] = mask_email(masked["email"])
     if isinstance(masked.get("phone"), str):
         masked["phone"] = mask_phone(masked["phone"])
+    if isinstance(masked.get("customer_contact"), str):
+        masked["customer_contact"] = mask_contacts(masked["customer_contact"])
     return masked
 
 

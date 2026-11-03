@@ -21,7 +21,14 @@ CALLS: list[tuple[str, dict[str, Any]]] = [
     ("get_order_status", {"order_id": 7, "phone": "(67) 99789-0123"}),
     ("get_order_status", {"order_id": 8, "email": "ana@gmail.com"}),
     ("get_store_policy", {"topic": "contact"}),
-    ("escalate_to_human", {"reason": "complaint", "summary": "Instrumento com defeito."}),
+    (
+        "escalate_to_human",
+        {
+            "reason": "complaint",
+            "summary": "Instrumento com defeito.",
+            "customer_contact": "Ana Ferreira, (67) 99654-7821",
+        },
+    ),
 ]
 
 

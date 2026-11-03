@@ -67,7 +67,11 @@ def test_order_status_and_payment_labels_in_english() -> None:
 
 
 def _escalate(context: ToolContext) -> Any:
-    args = {"reason": "delayed_order", "summary": "Order 8 is late."}
+    args = {
+        "reason": "delayed_order",
+        "summary": "Order 8 is late.",
+        "customer_contact": "Ana Ferreira, (67) 99654-7821",
+    }
     return ToolRegistry([EscalateToHumanTool(context)]).dispatch("escalate_to_human", args)
 
 

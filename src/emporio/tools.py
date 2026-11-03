@@ -11,7 +11,7 @@ import logging
 import re
 from abc import ABC, abstractmethod
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -46,6 +46,9 @@ class ToolContext:
     policies: PolicyBook
     now: Callable[[], datetime]  # injected clock (D-07)
     escalation_log: Path  # e.g. logs/escalations.jsonl (git-ignored)
+    # Orders verified by get_order_status in this session; an escalation about one of them
+    # already identifies the customer
+    verified_orders: set[int] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -543,6 +546,7 @@ class GetOrderStatusTool(Tool):
                 "The regret right applies to online purchases: confirm with the customer (A-10)."
             )
             notes.append("For the conditions, call get_store_policy with topic 'returns'.")
+        self.context.verified_orders.add(order.id)
         return {
             "verified": True,
             "customer_first_name": customer.first_name,
@@ -669,6 +673,22 @@ class EscalateArgs(BaseModel):
         description="One or two sentences for the attendant, without e-mails or phone numbers.",
     )
     order_id: int | None = Field(default=None, ge=1, description="Related order, if any.")
+    customer_contact: str | None = Field(
+        default=None,
+        min_length=5,
+        max_length=200,
+        description=(
+            "Customer name and e-mail or phone, as the customer gave them. Required when the "
+            "case is not about an order verified with get_order_status."
+        ),
+    )
+
+
+CONTACT_REQUIRED = (
+    "Contact required: no protocol was created. Ask the customer for their name and e-mail or "
+    "phone, then call escalate_to_human again with customer_contact. If they prefer not to "
+    "give them, share the store contacts and do not say that anything was registered."
+)
 
 
 class EscalateToHumanTool(Tool):
@@ -683,6 +703,9 @@ class EscalateToHumanTool(Tool):
 
     def run(self, args: BaseModel) -> dict[str, Any]:
         assert isinstance(args, EscalateArgs)
+        verified = args.order_id is not None and args.order_id in self.context.verified_orders
+        if not verified and not (args.customer_contact or "").strip():
+            raise ToolError("contact_required", CONTACT_REQUIRED)
         now = self.context.now().astimezone(STORE_TZ)
         protocol = self._next_protocol(now)
         self._append_log(
@@ -692,6 +715,7 @@ class EscalateToHumanTool(Tool):
                 "reason": args.reason,
                 "summary": mask_contacts(args.summary),
                 "order_id": args.order_id,
+                "customer_contact": args.customer_contact,
             }
         )
         status = _hours.status(now)
@@ -720,7 +744,12 @@ class EscalateToHumanTool(Tool):
         path = self.context.escalation_log
         if path.is_file():
             for line in path.read_text(encoding="utf-8").splitlines():
-                if line.strip() and json.loads(line).get("protocol", "").startswith(prefix):
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue  # a corrupted line must not stop new escalations
+                protocol = entry.get("protocol") if isinstance(entry, dict) else None
+                if isinstance(protocol, str) and protocol.startswith(prefix):
                     count += 1
         return f"{prefix}{count + 1:04d}"
 
