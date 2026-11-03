@@ -7,8 +7,10 @@
 
 _Tools: get_product_details_
 
-**Mel:** O Takamine GD20 Dreadnought Natural está saindo por R$ 2.199,00 — no PIX fica R$ 2.089,05, ou até 12x de R$ 183,25 sem juros.
+**Mel:** O Takamine GD20 Dreadnought Natural tá saindo por R$ 2.199,00 — PIX: R$ 2.089,05, ou até 12x de R$ 183,25 sem juros.
 
-Sobre o desconto: a promoção de 12% já encerrou, então o preço atual é o cheio. Ele está disponível e a entrega em Campo Grande é grátis (1 a 3 dias úteis).
+Sobre o desconto: a promoção de 12% (Oferta Especial) já encerrou, então o preço atual é esse mesmo, sem desconto ativo.
 
-Quer que eu veja alguma alternativa nessa faixa de preço?
+Ele tem tampo sólido em cedro e cordas de aço, ótimo pra fingerstyle. Aqui em Campo Grande a entrega é grátis, em 1 a 3 dias úteis.
+
+Quer que eu veja mais algum detalhe ou outra opção de violão?

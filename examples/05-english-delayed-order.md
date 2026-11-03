@@ -7,18 +7,18 @@
 
 _Tools: get_order_status, escalate_to_human_
 
-**Mel:** Hi Ana! I found your order 8 — the Kala KA-C Concert Mogno ukulele, shipped with tracking BRJL5544332BR. Unfortunately the estimated delivery date (28/02) has already passed, so it's running late, and I'm sorry about that.
+**Mel:** Hi Ana! Thanks for reaching out — I found your order: the Kala KA-C Concert Mogno was shipped, tracking code BRJL5544332BR, with estimated delivery on 28/02/2026.
 
-I've handed it to a human attendant — protocol EM-20261101-0008. The team replies within 24 business hours.
+That date has already passed, so I'm sorry — your order is delayed. I've forwarded it to our team, protocol EM-20261101-0001; they'll reply within 24 business hours.
 
-The store is closed right now; we reopen Tuesday, 03/11 at 09:00. You can also reach us at (67) 3341-4444 or contato@emporiodamusica.com.br.
+The store is closed right now, so the team gets back to you from Tuesday, 03/11 at 09:00. You can also reach them at (67) 3341-4444 or contato@emporiodamusica.com.br.
 
-Is there anything else I can help you with?
+Anything else I can help with in the meantime?
 
 **Cliente:** Yes, please open a ticket for me.
 
-**Mel:** It's already open, Ana! Ticket protocol **EM-20261101-0008** is registered for your delayed order 8.
+**Mel:** Good news, Ana — the ticket is already open for your delayed order: protocol EM-20261101-0001, registered with the delay report.
 
-The team replies within 24 business hours, starting from our next opening: Tuesday, 03/11 at 09:00. If you prefer, you can also contact them at (67) 3341-4444 or contato@emporiodamusica.com.br.
+The team replies within 24 business hours, starting Tuesday, 03/11 at 09:00 (store is closed now). You can also reach them at (67) 3341-4444 or contato@emporiodamusica.com.br.
 
-Anything else I can help you with?
+Is there anything else I can check for you today?

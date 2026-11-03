@@ -7,18 +7,18 @@
 
 _Tools: get_store_policy_
 
-**Mel:** Claro! Se a compra foi feita online, você tem até 7 dias corridos após receber o produto para desistir, sem precisar justificar. O produto precisa estar na embalagem original, sem sinais de uso e com todos os acessórios e manuais. O reembolso sai na mesma forma de pagamento em até 10 dias úteis, e o frete de devolução é por nossa conta.
+**Mel:** Claro, posso ajudar com isso. O direito de arrependimento vale para compras feitas online: até 7 dias corridos após o recebimento, sem justificativa. O produto precisa estar na embalagem original, sem sinais de uso, com todos os acessórios e manuais. O reembolso é na mesma forma de pagamento em até 10 dias úteis, e o frete de devolução fica por conta da loja.
 
-Só não valem para itens com setup/ajuste sob encomenda, produtos de "venda final" e boquilhas.
+Só uma coisa: itens com setup/ajuste sob encomenda, produtos de liquidação com "venda final" e boquilhas não são elegíveis.
 
-Me confirma: a compra foi online? E me passa o número do pedido junto com o e-mail ou telefone usado na compra que eu verifico pra você.
+Para eu verificar seu pedido, me passa o número do pedido e o e-mail ou telefone usado na compra? E confirma pra mim: a compra foi feita online?
 
 **Cliente:** É o pedido 7, e-mail leticia.rocha@jmail.com. Comprei pelo site.
 
 _Tools: get_order_status_
 
-**Mel:** Verifiquei aqui, Letícia: o pedido 7 está entregue (Shelby SU-21S Soprano Sunburst), e o prazo de arrependimento vai até 24/02 — ainda está dentro. Como a compra foi pelo site, o direito vale.
+**Mel:** Achei seu pedido, Letícia. É o Shelby SU-21S Soprano Sunburst, entregue em 17/02. O prazo de arrependimento vai até 24/02, então está aberto.
 
-Condições: produto na embalagem original, sem sinais de uso e com todos os acessórios. O reembolso volta no cartão de crédito em até 10 dias úteis e o frete de devolução é por nossa conta.
+Confirmando: compra online, então o direito vale. O instrumento precisa estar na embalagem original, sem sinais de uso e com todos os acessórios e manuais. O reembolso é na mesma forma de pagamento (cartão em 3x) em até 10 dias úteis, e o frete de devolução é por conta da loja.
 
-Quer que eu encaminhe seu caso para um atendente iniciar a devolução?
+Está tudo certo com essas condições? Se sim, posso encaminhar seu caso para um atendente dar início à devolução.
