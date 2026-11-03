@@ -14,9 +14,20 @@ TOOLS = {
 ITEMS = runner.load_scenarios(ROOT / "tests" / "scenarios.yaml")
 
 
-def test_seventeen_scenarios_with_unique_ids() -> None:
-    assert len(ITEMS) == 17
-    assert len({s.id for s in ITEMS}) == 17
+def test_twenty_scenarios_with_unique_ids() -> None:
+    assert len(ITEMS) == 20
+    assert len({s.id for s in ITEMS}) == 20
+
+
+def test_scenarios_from_the_second_review() -> None:
+    by_id = {s.id: s for s in ITEMS}
+    kala = by_id["kala-all-candidates"]
+    assert kala.must_include_at_least is not None and kala.must_include_at_least[0] == 5
+    assert "três" in kala.must_not_include
+    assert {"Yamaha C40", "Yamaha FG800"} <= set(by_id["multiword-search"].must_include)
+    privacy = by_id["privacy-request-asks-contact"]
+    assert {"registrad", "EM-"} <= set(privacy.first_reply_must_not_include)
+    assert "não tem garantia legal" in by_id["defect-legal-warranty"].must_not_include
 
 
 def test_scenarios_from_the_independent_review() -> None:

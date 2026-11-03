@@ -101,6 +101,13 @@ def test_first_reply_must_not_include_checks_only_the_first_reply(run: Any) -> N
     assert any("first reply must not include" in f for f in first.failures)
 
 
+def test_must_include_at_least_counts_distinct_texts() -> None:
+    item = scenario(must_include=[], must_include_at_least={"count": 2, "of": ["A1", "B2", "C3"]})
+    assert runner.check(item, "a1 and c3", []) == ["expected tool not called: get_product_details"]
+    failures = runner.check(item, "only a1", [])
+    assert "must include at least 2 of ['A1', 'B2', 'C3'], found 1" in failures
+
+
 def test_pause_between_scenarios() -> None:
     sleeps: list[float] = []
     items = [scenario(id="a"), scenario(id="b"), scenario(id="c")]
