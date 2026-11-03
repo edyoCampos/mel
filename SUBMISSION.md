@@ -45,7 +45,7 @@ make chat                  # talk to Mel in the terminal
 | Model and provider | Groq `openai/gpt-oss-120b` through an OpenAI-compatible adapter, free for the evaluator |
 | Interface | CLI with `--trace` to show each tool call |
 | Conversation history (persistence) | History in memory for the session |
-| Data handling | CSVs validated with Pydantic, product specs normalized, and all 26 data or policy inconsistencies found documented with a decision (README, Data findings) |
+| Data handling | CSVs validated with Pydantic, product specs normalized, and all 27 data or policy inconsistencies found documented with a decision (README, Data findings) |
 | Retrieval | Policies by topic and data through typed tools; no vector store for an 8-page manual |
 | Prompt | Six blocks plus date, time and store status on every turn; rules that matter are enforced in code |
 

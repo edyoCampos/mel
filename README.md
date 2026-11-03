@@ -194,6 +194,7 @@ taken for each.
 | A-24 | "Metropolitan region of Campo Grande" is not defined | Only the city of Campo Grande gets local delivery rules |
 | A-25 | Special freight for "contrabaixos"; the catalog has electric basses only | Read as the large acoustic double bass; electric basses ship normally |
 | A-26 | Product 139 is named "Bateria Acústica Yamaha Kit 1" but its description says "Pearl Export" | Kept as is; search by text may return it for "Pearl" |
+| A-27 | The special freight quote for acoustic drum kits sits in the section for other cities (5.2) | The quote applies only outside Campo Grande; in the city drum kits follow 5.1 (free above R$ 500,00, 1 to 3 business days) |
 | — | The store is in Campo Grande/MS, UTC−04:00 | Store hours use `America/Campo_Grande` |
 
 ---

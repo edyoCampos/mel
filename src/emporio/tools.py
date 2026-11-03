@@ -421,23 +421,21 @@ class GetProductDetailsTool(Tool):
         }
 
     def _delivery(self, product: Product) -> dict[str, Any]:
-        if _shipping.requires_special_quote(product):
-            quote = "cotação especial — encaminhar para um atendente (escalate_to_human)"
-            return {
-                "campo_grande_fee": quote,
-                "campo_grande_time": "a combinar",
-                "other_cities": quote,
-                "requires_special_quote": True,
-            }
+        # Policy 5.1 applies in Campo Grande to every product; the special quote of policy 5.2
+        # (acoustic drum kits) is only for other cities
+        special = _shipping.requires_special_quote(product)
         fee = _shipping.local_delivery_fee(self.context.data.current_price(product))
+        other_cities = (
+            "cotação especial — encaminhar para um atendente (escalate_to_human)"
+            if special
+            else "Correios (PAC ou SEDEX) ou Jadlog; valor calculado pelo CEP — "
+            "encaminhar para cotação"
+        )
         return {
             "campo_grande_fee": "Grátis" if fee == fee.zero() else str(fee),
             "campo_grande_time": "1 a 3 dias úteis",
-            "other_cities": (
-                "Correios (PAC ou SEDEX) ou Jadlog; valor calculado pelo CEP — "
-                "encaminhar para cotação"
-            ),
-            "requires_special_quote": False,
+            "other_cities": other_cities,
+            "requires_special_quote": special,
         }
 
     def _alternatives(self, product: Product) -> list[dict[str, Any]]:

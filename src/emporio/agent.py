@@ -28,17 +28,40 @@ from emporio.services import (
 )
 from emporio.tools import ToolRegistry, mask_contacts
 
-FALLBACK_ERROR = (
-    "Desculpa, tive um problema técnico agora e não consegui consultar o sistema. "
-    "Você pode falar com a nossa equipe pelo (67) 3341-4444 ou pelo e-mail "
-    "contato@emporiodamusica.com.br."
-)
-FALLBACK_LIMIT = (
-    "Hmm, essa pergunta ficou mais complexa do que eu consigo resolver por aqui. "
-    "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
-)
-FALLBACK_QUOTA = "O provedor gratuito atingiu o limite de uso. Tente de novo em {wait}."
-EMPTY_MESSAGE_REPLY = "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?"
+# Messages written by the code, in the customer's language
+FALLBACK_ERROR: dict[Language, str] = {
+    "pt": (
+        "Desculpa, tive um problema técnico agora e não consegui consultar o sistema. "
+        "Você pode falar com a nossa equipe pelo (67) 3341-4444 ou pelo e-mail "
+        "contato@emporiodamusica.com.br."
+    ),
+    "en": (
+        "Sorry, I had a technical problem and could not check the system just now. "
+        "You can reach our team at (67) 3341-4444 or contato@emporiodamusica.com.br."
+    ),
+}
+FALLBACK_LIMIT: dict[Language, str] = {
+    "pt": (
+        "Hmm, essa pergunta ficou mais complexa do que eu consigo resolver por aqui. "
+        "Quer que eu passe para um atendente? Você também pode ligar no (67) 3341-4444."
+    ),
+    "en": (
+        "Hmm, this question got more complex than I can handle here. "
+        "Would you like me to hand you to an attendant? You can also call (67) 3341-4444."
+    ),
+}
+FALLBACK_QUOTA: dict[Language, str] = {
+    "pt": "O provedor gratuito atingiu o limite de uso. Tente de novo em {wait}.",
+    "en": "The free provider reached its usage limit. Please try again in {wait}.",
+}
+_MINUTES: dict[Language, tuple[str, str]] = {
+    "pt": ("1 minuto", "{n} minutos"),
+    "en": ("1 minute", "{n} minutes"),
+}
+EMPTY_MESSAGE_REPLY: dict[Language, str] = {
+    "pt": "Oi! Sou a Mel, da Empório da Música. Como posso te ajudar?",
+    "en": "Hi! I'm Mel, from Empório da Música. How can I help you?",
+}
 # Protocol guard (D-12 exception): a protocol exists only when escalate_to_human
 # returned it. A reply that mentions one without that gets one retry with this instruction
 # (sent, never stored in the history); a second miss returns the store contacts.
@@ -47,12 +70,25 @@ PROTOCOL_NUDGE = (
     "protocol exists. Call escalate_to_human now if the case needs a human; otherwise answer "
     "without mentioning any protocol."
 )
-FALLBACK_NO_PROTOCOL = (
-    "Sinto muito por isso. Para registrar o seu caso com a nossa equipe, fale com a gente "
-    "pelo WhatsApp (67) 3341-4444 ou pelo e-mail contato@emporiodamusica.com.br."
-)
-_PROTOCOL_WORD = re.compile(r"protocol", re.IGNORECASE)
+FALLBACK_NO_PROTOCOL: dict[Language, str] = {
+    "pt": (
+        "Sinto muito por isso. Para registrar o seu caso com a nossa equipe, fale com a gente "
+        "pelo WhatsApp (67) 3341-4444 ou pelo e-mail contato@emporiodamusica.com.br."
+    ),
+    "en": (
+        "I'm sorry about that. To register your case with our team, contact us on WhatsApp "
+        "(67) 3341-4444 or at contato@emporiodamusica.com.br."
+    ),
+}
+# A protocol code: the store's format anywhere, or a code with digits right after the word
+# "protocolo"/"protocol" ("protocolo 2026-11-00123", "protocol is 99"). The word alone
+# ("o protocolo de troca é simples") is not a code.
 _PROTOCOL_CODE = re.compile(r"EM-\d{8}-\d{4}")
+_CODE_AFTER_WORD = re.compile(
+    r"protocol\w*\W+(?:(?:é|is|o|do|da|n[º°o.]*|número|numero|number)\W+){0,3}"
+    r"([A-Za-z]*-?\d[\w-]*)",
+    re.IGNORECASE,
+)
 # Language guard (D-12 exception): an English customer message answered in Portuguese gets one retry
 # with this instruction (sent, never stored); a second Portuguese draft is kept.
 LANGUAGE_NUDGE = (
@@ -176,11 +212,9 @@ class Agent:
         self._language = "pt"
 
     def _invents_protocol(self, content: str) -> bool:
-        if not _PROTOCOL_WORD.search(content):
-            return False
-        if not self._protocols:
-            return True
-        return any(code not in self._protocols for code in _PROTOCOL_CODE.findall(content))
+        """True when the reply cites a protocol code that escalate_to_human did not return."""
+        codes = set(_PROTOCOL_CODE.findall(content)) | set(_CODE_AFTER_WORD.findall(content))
+        return any(code not in self._protocols for code in codes)
 
     def _emit(self, event: TraceEvent) -> None:
         if self._tracer is not None:
@@ -197,7 +231,7 @@ class Agent:
 
     def reply(self, user_message: str) -> str:
         if not user_message.strip():
-            return EMPTY_MESSAGE_REPLY
+            return EMPTY_MESSAGE_REPLY[self._language]
         self._history.append(Message(role="user", content=user_message.strip()))
         self._language = detect_language(user_message) or self._language
         # Tools write customer-facing phrases in this language
@@ -235,9 +269,10 @@ class Agent:
                 self._emit(TraceEvent("llm_error", None, None, str(exc)[:_SUMMARY_LIMIT], elapsed))
                 if isinstance(exc, QuotaExceededError):
                     minutes = max(1, math.ceil(exc.retry_after_seconds / 60))
-                    wait = "1 minuto" if minutes == 1 else f"{minutes} minutos"
-                    return self._finish(FALLBACK_QUOTA.format(wait=wait))
-                return self._finish(FALLBACK_ERROR)
+                    one, many = _MINUTES[self._language]
+                    wait = one if minutes == 1 else many.format(n=minutes)
+                    return self._finish(FALLBACK_QUOTA[self._language].format(wait=wait))
+                return self._finish(FALLBACK_ERROR[self._language])
             if not response.tool_calls:
                 content = response.content or ""
                 if self._invents_protocol(content):
@@ -245,7 +280,7 @@ class Agent:
                         TraceEvent("protocol_guard", None, None, content[:_SUMMARY_LIMIT], 0)
                     )
                     if nudged:
-                        return self._finish(FALLBACK_NO_PROTOCOL)
+                        return self._finish(FALLBACK_NO_PROTOCOL[self._language])
                     nudged = True
                     continue
                 if not alternatives_nudged and any(
@@ -270,7 +305,7 @@ class Agent:
                 )
                 summary = f"{calls_done} tool calls; refused: {refused}"
                 self._emit(TraceEvent("limit_reached", None, None, summary, 0))
-                return self._finish(FALLBACK_LIMIT)
+                return self._finish(FALLBACK_LIMIT[self._language])
             self._history.append(
                 Message(role="assistant", content=response.content, tool_calls=response.tool_calls)
             )
