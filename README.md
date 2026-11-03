@@ -188,7 +188,7 @@ taken for each.
 | A-18 | Preference exchange "within 7 days" without a start date | Counted from receipt |
 | A-19 | "Free shipping above R$ 500" | Exactly R$ 500,00 pays R$ 35,00 |
 | A-20 | The manual defines no dispatch deadline | Shipped past the estimate, or not shipped after 7 days = delayed; Mel offers a human |
-| A-21 | The `strings` spec mixes material ("nylon") and count ("6") | Split into `string_material` and `string_count` |
+| A-21 | The `strings` spec mixes material ("nylon") and count ("6") | The material goes to `string_material`, used by the search; the count is not used |
 | A-22 | The manual describes yearly campaigns (Black Friday, Semana do Músico) but none is active | Only active promotions exist for Mel; no campaign discount is promised |
 | A-23 | Ibanez Bass 2X is `discontinued` but has stock 13 | Status wins over stock: not offered |
 | A-24 | "Metropolitan region of Campo Grande" is not defined | Only the city of Campo Grande gets local delivery rules |

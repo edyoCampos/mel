@@ -27,8 +27,8 @@ def copy_data(tmp_path: Path) -> Path:
 def test_load_counts_match_csv_files(data: StoreData) -> None:
     assert len(data.categories()) == 9
     assert len(data.products()) == 65
-    assert data.customer_count() == 50
-    assert data.order_count() == 20
+    assert sum(data.get_customer(c) is not None for c in range(1, 51)) == 50
+    assert sum(data.get_order(o) is not None for o in range(1, 21)) == 20
     assert sum(len(data.order_items(o)) for o in range(1, 21)) == 22
     assert sum(len(data.promotions_for(p.id)) for p in data.products()) == 25
 
@@ -53,27 +53,23 @@ def test_specs_strings_material_for_acoustic_guitars(data: StoreData) -> None:
     yamaha_c40 = data.get_product(81)
     assert yamaha_c40 is not None
     assert yamaha_c40.string_material == "nylon"
-    assert yamaha_c40.string_count is None
 
 
-def test_specs_seven_string_guitar_count_from_name(data: StoreData) -> None:
+def test_specs_seven_string_guitar_material(data: StoreData) -> None:
     tagima_tw7 = data.get_product(112)
     assert tagima_tw7 is not None
     assert tagima_tw7.string_material == "steel"
-    assert tagima_tw7.string_count == 7
 
 
-def test_specs_strings_count_for_electric_guitars(data: StoreData) -> None:
+def test_specs_string_count_is_not_a_material(data: StoreData) -> None:
     guitar = data.products_in_category(1)[0]
-    assert guitar.string_material is None
-    assert guitar.string_count == 6
+    assert guitar.string_material is None  # electric guitars have "strings": "6"
 
 
 def test_specs_without_strings_key(data: StoreData) -> None:
     pearl = data.get_product(140)
     assert pearl is not None
     assert pearl.string_material is None
-    assert pearl.string_count is None
 
 
 @pytest.mark.parametrize(

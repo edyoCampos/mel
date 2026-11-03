@@ -107,7 +107,6 @@ class InstallmentCalculator:
 # ---------- Pricing (R-01, R-02, R-04, A-13) ----------
 
 PIX_DISCOUNT_PERCENT = 5
-COMBINED_PAYMENT_THRESHOLD = Money("2000")
 
 
 @dataclass(frozen=True)
@@ -167,10 +166,6 @@ class PricingService:
             best_installments=self._installments.best_plan(effective_price),
         )
 
-    def can_combine_payment_methods(self, total: Money) -> bool:
-        """Combining payment methods is allowed only above R$ 2.000,00 (policy 3.1)."""
-        return total > COMBINED_PAYMENT_THRESHOLD
-
 
 # ---------- Shipping (R-05, A-19, A-24, A-25) ----------
 
@@ -178,13 +173,8 @@ DRUMS_CATEGORY_ID = 3  # "Baterias e Percussão"
 
 
 class ShippingRules:
-    LOCAL_CITY = "Campo Grande"
     FREE_SHIPPING_ABOVE = Money("500")
     LOCAL_FEE = Money("35")
-
-    def is_local(self, city: str) -> bool:
-        """Only the municipality of Campo Grande gets the local rule (A-24)."""
-        return normalize_text(city) == normalize_text(self.LOCAL_CITY)
 
     def local_delivery_fee(self, order_amount: Money) -> Money:
         """Free strictly above R$ 500,00, otherwise R$ 35,00 (policy 5.1, A-19)."""

@@ -120,21 +120,17 @@ def _parse_specs(raw: str) -> dict[str, str]:
     return {str(k): str(v) for k, v in json.loads(raw).items()}
 
 
-def _string_fields(specs: dict[str, str], name: str) -> tuple[str | None, int | None]:
-    """Split the mixed 'strings' spec into material and count (A-21)."""
+def _string_material(specs: dict[str, str]) -> str | None:
+    """The mixed 'strings' spec holds a material ("nylon") or a count ("6"); keep the material
+    (A-21)."""
     raw = specs.get("strings")
-    seven = re.search(r"(\d+)\s+cordas", normalize_text(name))
-    named_count = int(seven.group(1)) if seven else None
-    if raw is None:
-        return None, named_count
-    if raw.isdigit():
-        return None, int(raw)
-    return raw.lower(), named_count
+    if raw is None or raw.isdigit():
+        return None
+    return raw.lower()
 
 
 def _product_row(row: dict[str, str]) -> dict[str, Any]:
     specs = _parse_specs(row["specs"])
-    material, count = _string_fields(specs, row["name"])
     return {
         "id": row["product_id"],
         "name": row["name"],
@@ -144,8 +140,7 @@ def _product_row(row: dict[str, str]) -> dict[str, Any]:
         "stock_quantity": row["stock_quantity"],
         "status": row["status"],
         "specs": specs,
-        "string_material": material,
-        "string_count": count,
+        "string_material": _string_material(specs),
         "created_at": date.fromisoformat(row["created_at"]),
     }
 
@@ -371,12 +366,6 @@ class StoreData:
     def order_items(self, order_id: int) -> list[OrderItem]:
         return list(self._items.get(order_id, []))
 
-    def order_count(self) -> int:
-        return len(self._orders)
-
     def get_customer(self, customer_id: int) -> Customer | None:
         """By id only; there is no listing or search of customers (NFR-03)."""
         return self._customers.get(customer_id)
-
-    def customer_count(self) -> int:
-        return len(self._customers)

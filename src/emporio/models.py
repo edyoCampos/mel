@@ -142,7 +142,6 @@ class Product(BaseModel):
     status: ProductStatus
     specs: dict[str, str]
     string_material: str | None = None  # "nylon" | "steel" (A-21)
-    string_count: int | None = None  # 4, 6, 7... (A-21)
     created_at: date
 
     @property

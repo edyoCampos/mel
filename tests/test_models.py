@@ -27,7 +27,6 @@ def make_product(**overrides: object) -> Product:
         "status": "active",
         "specs": {"strings": "nylon"},
         "string_material": "nylon",
-        "string_count": None,
         "created_at": date(2021, 3, 15),
     }
     fields.update(overrides)

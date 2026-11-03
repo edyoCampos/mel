@@ -18,17 +18,6 @@ def test_local_fee_above_500_is_free() -> None:
     assert shipping.local_delivery_fee(Money("500.01")) == Money.zero()
 
 
-@pytest.mark.parametrize("city", ["campo grande", " Campo  Grande ", "CAMPO GRANDE"])
-def test_is_local_campo_grande_variants(city: str) -> None:
-    assert shipping.is_local(city)
-
-
-@pytest.mark.parametrize("city", ["Dourados", "Três Lagoas", "Corumbá", "Ponta Porã"])
-def test_is_local_other_cities_false(city: str) -> None:
-    # A-24: the metropolitan region is the municipality of Campo Grande only
-    assert not shipping.is_local(city)
-
-
 @pytest.mark.parametrize(
     ("product_id", "name"),
     [

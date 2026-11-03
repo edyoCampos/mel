@@ -1,4 +1,4 @@
-"""The scenarios file is well formed (scenarios_spec.md)."""
+"""The scenarios file (tests/scenarios.yaml) is well formed."""
 
 from tests.conftest import ROOT
 from tests.test_scenario_runner import runner

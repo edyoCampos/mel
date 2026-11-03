@@ -54,14 +54,6 @@ def test_two_active_promotions_use_largest() -> None:
     assert quote.promotional_price == Money("850")
 
 
-def test_combine_payment_methods_exactly_2000_is_false() -> None:
-    assert pricing.can_combine_payment_methods(Money("2000")) is False
-
-
-def test_combine_payment_methods_above_2000_is_true() -> None:
-    assert pricing.can_combine_payment_methods(Money("2000.01")) is True
-
-
 # ---------- Ready-to-copy display strings ----------
 
 
