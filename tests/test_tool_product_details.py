@@ -115,8 +115,17 @@ def test_ambiguous_query_returns_candidates(details: Any) -> None:
     result = details({"query": "takamine"})
     assert result.payload["status"] == "ambiguous"
     candidates = result.payload["candidates"]
-    assert 1 < len(candidates) <= 3
+    assert 1 < len(candidates) <= 10
     assert all("Takamine" in c["name"] for c in candidates)
+    assert result.payload["total_candidates"] == len(candidates)
+
+
+def test_ambiguous_query_returns_every_candidate(details: Any) -> None:
+    result = details({"query": "Kala"})
+    assert result.payload["status"] == "ambiguous"
+    ids = {c["id"] for c in result.payload["candidates"]}
+    assert ids == {116, 120, 123, 124, 126, 128, 130}  # the 7 Kala products, no Kalani
+    assert result.payload["total_candidates"] == 7
 
 
 @pytest.mark.parametrize(

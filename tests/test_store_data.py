@@ -247,3 +247,18 @@ def test_name_lookup_kala_does_not_bring_kalani(data: StoreData) -> None:
 def test_name_lookup_kalani_brings_kalani(data: StoreData) -> None:
     matches = data.match_product_name("kalani", limit=3)
     assert all(m.product.name.startswith("Kalani ") for m in matches)
+
+
+def test_text_search_with_a_category_word_and_a_brand(data: StoreData) -> None:
+    names = [p.name for p in data.search_products(ProductFilter(text="violão Yamaha"))]
+    assert names and all(name.startswith("Yamaha ") for name in names)
+
+
+def test_text_search_needs_every_word(data: StoreData) -> None:
+    products = data.search_products(ProductFilter(text="Yamaha nylon"))
+    assert products
+    assert all(p.name.startswith("Yamaha ") and "Nylon" in p.name for p in products)
+
+
+def test_text_search_unknown_word_finds_nothing(data: StoreData) -> None:
+    assert data.search_products(ProductFilter(text="Jazzmaster")) == []
