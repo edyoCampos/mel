@@ -69,3 +69,9 @@ def test_template_asks_contact_before_escalating_without_a_verified_order() -> N
 
 def test_template_limits_the_drum_kit_quote_to_other_cities() -> None:
     assert "special freight quotes (acoustic drum kits outside Campo Grande)" in TEMPLATE
+
+
+def test_template_copies_the_campaign_status_phrase() -> None:
+    flat = " ".join(TEMPLATE.split())
+    assert "copy campaign_status_display exactly" in flat
+    assert "follow its note" not in flat

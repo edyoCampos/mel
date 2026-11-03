@@ -7,6 +7,7 @@ from typing import Any
 import pytest
 
 from emporio.policies import PolicyTopic
+from emporio.services import CUSTOMER_LANGUAGE
 from emporio.tools import GetStorePolicyTool, ToolContext, ToolRegistry
 
 
@@ -55,12 +56,30 @@ def test_every_topic_maps_to_sections(policy: Any, topic: str) -> None:
 
 # ---------- Seasonal campaigns computed from promotions.csv (FR-15) ----------
 
+NO_CAMPAIGN_PT = (
+    "No momento não há campanha sazonal ativa no sistema, então não consigo prometer desconto "
+    "nem data. Vale acompanhar as redes sociais da loja para saber quando a campanha começar."
+)
+
 
 def test_promotions_topic_lists_no_active_campaign(policy: Any) -> None:
     payload = policy({"topic": "promotions"}).payload
     assert payload["active_campaign_promotions"] == []  # all 4 active rows are not campaigns
     assert "Black Friday" in payload["text"]  # the manual ranges stay visible (§7.3)
-    assert "redes sociais" in payload["note"]
+    assert payload["campaign_status_display"] == NO_CAMPAIGN_PT
+    assert "note" not in payload  # one source: the ready-made phrase
+
+
+def test_no_campaign_phrase_in_english(policy: Any) -> None:
+    token = CUSTOMER_LANGUAGE.set("en")
+    try:
+        payload = policy({"topic": "promotions"}).payload
+    finally:
+        CUSTOMER_LANGUAGE.reset(token)
+    assert payload["campaign_status_display"] == (
+        "There is no seasonal campaign active in the system right now, so I cannot promise a "
+        "discount or a date. Follow the store's social media to know when a campaign starts."
+    )
 
 
 def test_active_campaign_is_listed(tmp_path: Any) -> None:
@@ -102,7 +121,11 @@ def test_active_campaign_is_listed(tmp_path: Any) -> None:
     assert payload["active_campaign_promotions"] == [
         {"campaign": "Black Friday", "product": "Violão Teste", "discount_percent": 30}
     ]
+    assert payload["campaign_status_display"] == (
+        "Campanha ativa no sistema: Black Friday, 30% de desconto no Violão Teste."
+    )
 
 
 def test_other_topics_have_no_campaign_field(policy: Any) -> None:
     assert "active_campaign_promotions" not in policy({"topic": "contact"}).payload
+    assert "campaign_status_display" not in policy({"topic": "contact"}).payload
