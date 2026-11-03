@@ -37,6 +37,9 @@ cp .env.example .env       # then put a free Groq API key in .env
 make chat                  # talk to Mel in the terminal
 ```
 
+Full instructions, ready-to-paste questions and the Docker option:
+[Try it in 5 minutes](README.md#try-it-in-5-minutes).
+
 ## Key decisions
 
 | Topic | Decision |
@@ -61,14 +64,11 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 ## Results
 
-Final full run on DeepSeek `deepseek-flash`, 02/11, final code: **20/20**. Tested with DeepSeek
-`deepseek-flash` (final run) and with Groq `openai/gpt-oss-120b` (15/15 on an earlier version of
-the code); Groq is recommended because it is free. On the way, DeepSeek runs gave 12/15, 13/15,
-14/15, 15/15, 17/17 and 19/20; two independent reviews found bugs (partial-word search, the legal
-warranty missing from returns, escalations that did not identify the customer, three candidates
-only, multi-word search); each failure was fixed in code and covered by a scenario. Each behavior
-has a `test:` commit with the failing test before the `feat:` commit; since the agent wrote both,
-they are usually only a few minutes apart. Every run: [`docs/scenarios.md`](docs/scenarios.md).
+Final full run on DeepSeek `deepseek-flash` (02/11): **20/20 scenarios**. Groq
+`openai/gpt-oss-120b` passed 15/15 on an earlier version of the code and stays recommended because
+it is free. Two independent reviews found five bugs in search and escalation; each was fixed in
+code and covered by a new scenario. Every run, including the failing ones:
+[`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
 
