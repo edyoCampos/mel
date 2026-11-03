@@ -66,8 +66,8 @@ All 25 decisions and their reasons: [`DECISIONS.md`](DECISIONS.md).
 
 Final full run on DeepSeek `deepseek-flash` (02/11): **20/20 scenarios**. Groq
 `openai/gpt-oss-120b` passed 15/15 on an earlier version of the code and stays recommended because
-it is free. Two independent reviews found five bugs in search and escalation; each was fixed in
-code and covered by a new scenario. Every run, including the failing ones:
+it is free. Two independent reviews found eight bugs; all were fixed in code with tests, and
+five of them also got a new scenario. Every run, including the failing ones:
 [`docs/scenarios.md`](docs/scenarios.md).
 
 ## Known limitations
