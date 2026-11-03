@@ -26,6 +26,7 @@ from emporio.services import (
     STORE_TZ,
     CustomerVerifier,
     DelayAssessor,
+    Language,
     PricingService,
     ReturnWindows,
     ShippingRules,
@@ -582,11 +583,41 @@ SEASONAL_CAMPAIGNS = (
     "Liquidação de Inverno",
     "Promoção de Páscoa",
 )
-CAMPAIGN_NOTE = (
-    "active_campaign_promotions comes from the store data. When it is empty, no seasonal "
-    "campaign is active now: you may cite the manual's usual ranges as information, but "
-    "never promise a discount or a start date; suggest following the store's redes sociais."
-)
+# Ready-made phrase about seasonal campaigns, from active_campaign_promotions (FR-15): the
+# model copies it, like price_display, instead of following a note
+NO_CAMPAIGN: dict[Language, str] = {
+    "pt": (
+        "No momento não há campanha sazonal ativa no sistema, então não consigo prometer "
+        "desconto nem data. Vale acompanhar as redes sociais da loja para saber quando a "
+        "campanha começar."
+    ),
+    "en": (
+        "There is no seasonal campaign active in the system right now, so I cannot promise a "
+        "discount or a date. Follow the store's social media to know when a campaign starts."
+    ),
+}
+_ACTIVE_CAMPAIGN: dict[Language, tuple[str, str, str]] = {
+    "pt": (
+        "Campanha ativa no sistema: ",
+        "Campanhas ativas no sistema: ",
+        "{c}, {d}% de desconto no {p}",
+    ),
+    "en": (
+        "Active campaign in the system: ",
+        "Active campaigns in the system: ",
+        "{c}, {d}% off the {p}",
+    ),
+}
+
+
+def campaign_status_display(campaigns: list[dict[str, Any]], language: Language) -> str:
+    if not campaigns:
+        return NO_CAMPAIGN[language]
+    one, many, item = _ACTIVE_CAMPAIGN[language]
+    parts = [
+        item.format(c=c["campaign"], d=c["discount_percent"], p=c["product"]) for c in campaigns
+    ]
+    return (one if len(parts) == 1 else many) + "; ".join(parts) + "."
 
 
 def active_campaign_promotions(data: StoreData) -> list[dict[str, Any]]:
@@ -631,8 +662,11 @@ class GetStorePolicyTool(Tool):
             "text": section.text,
         }
         if section.topic is PolicyTopic.PROMOTIONS:
-            payload["active_campaign_promotions"] = active_campaign_promotions(self.context.data)
-            payload["note"] = CAMPAIGN_NOTE
+            campaigns = active_campaign_promotions(self.context.data)
+            payload["active_campaign_promotions"] = campaigns
+            payload["campaign_status_display"] = campaign_status_display(
+                campaigns, CUSTOMER_LANGUAGE.get()
+            )
         return payload
 
 
