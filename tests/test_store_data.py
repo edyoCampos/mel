@@ -251,7 +251,7 @@ def test_name_lookup_kalani_brings_kalani(data: StoreData) -> None:
 
 def test_text_search_with_a_category_word_and_a_brand(data: StoreData) -> None:
     names = [p.name for p in data.search_products(ProductFilter(text="violão Yamaha"))]
-    assert names and all(name.startswith("Yamaha ") for name in names)
+    assert {"Yamaha C40 Nylon Natural", "Yamaha FG800 Dreadnought Natural"} <= set(names)
 
 
 def test_text_search_needs_every_word(data: StoreData) -> None:

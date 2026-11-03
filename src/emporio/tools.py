@@ -310,6 +310,7 @@ class SearchProductsTool(Tool):
 MATCH_SCORE = 85  # fuzzy score for a confident name match
 MATCH_MARGIN = 5
 CANDIDATE_SCORE = 60
+CANDIDATES_LIMIT = 10
 ALTERNATIVES_LIMIT = 3
 ALTERNATIVES_PRICE_RANGE = Decimal("0.30")  # FR-04: +/- 30%
 
@@ -351,7 +352,7 @@ class GetProductDetailsTool(Tool):
                 raise ToolError("not_found", f"No product with id {args.product_id}.")
             return self._details(product)
         assert args.query is not None
-        matches = data.match_product_name(args.query, limit=ALTERNATIVES_LIMIT)
+        matches = data.match_product_name(args.query, limit=len(data.products()))
         best = matches[0] if matches else None
         second = matches[1].score if len(matches) > 1 else 0.0
         if best and best.score >= MATCH_SCORE and best.score - second >= MATCH_MARGIN:
@@ -360,6 +361,7 @@ class GetProductDetailsTool(Tool):
         if candidates:
             return {
                 "status": "ambiguous",
+                "total_candidates": len(candidates),
                 "candidates": [
                     {
                         "id": m.product.id,
@@ -367,7 +369,7 @@ class GetProductDetailsTool(Tool):
                         "current_price": str(data.current_price(m.product)),
                         "availability": m.product.availability.value,
                     }
-                    for m in candidates
+                    for m in candidates[:CANDIDATES_LIMIT]
                 ],
                 "note": "Ask the customer which one they mean.",
             }

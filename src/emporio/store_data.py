@@ -315,7 +315,8 @@ class StoreData:
 
     def search_products(self, flt: ProductFilter) -> list[Product]:
         """Sorted by current price, then name."""
-        text = search_key(flt.text) if flt.text else None
+        # Every word must appear as a whole word; words that only name the category are dropped
+        words = _without_category_words(flt.text).split() if flt.text else []
         results: list[tuple[Money, str, Product]] = []
         for product in self._products.values():
             if not flt.include_unavailable and not product.is_sellable:
@@ -334,8 +335,8 @@ class StoreData:
             if flt.electric is not None and self._is_electric(product) != flt.electric:
                 continue
             # Whole words only: "kala" must not match "Kalani"
-            haystack = f" {search_key(f'{product.name} {product.description}')} "
-            if text and f" {text} " not in haystack:
+            haystack = set(search_key(f"{product.name} {product.description}").split())
+            if any(word not in haystack for word in words):
                 continue
             results.append((price, product.name, product))
         results.sort(key=lambda r: (r[0].amount, r[1]))
