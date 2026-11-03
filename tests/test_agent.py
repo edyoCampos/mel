@@ -188,7 +188,7 @@ def test_invalid_tool_arguments_are_returned_to_llm(build: Any) -> None:
 def test_tool_call_limit_returns_fallback(build: Any) -> None:
     llm = FakeLLM([tool_calls(call("ping", "{}", f"c{i}")) for i in range(10)])
     agent, recorder = build(llm)
-    assert agent.reply("loop") == FALLBACK_LIMIT
+    assert agent.reply("loop") == FALLBACK_LIMIT["pt"]
     executed = [e for e in recorder.events if e.kind == "tool_call"]
     assert len(executed) == 6
     assert recorder.events[-1].kind == "limit_reached"
@@ -234,7 +234,7 @@ def test_limit_event_lists_the_refused_calls(build: Any) -> None:
 def test_llm_error_returns_friendly_message(build: Any) -> None:
     agent, recorder = build(FakeLLM([LLMError("timeout")]))
     reply = agent.reply("oi")
-    assert reply == FALLBACK_ERROR
+    assert reply == FALLBACK_ERROR["pt"]
     assert "(67) 3341-4444" in reply
     assert recorder.events[-1].kind == "llm_error"
 
@@ -319,7 +319,7 @@ def test_invented_protocol_twice_returns_contacts_without_protocol(build_esc: An
     llm = FakeLLM([text("Seu protocolo é 123."), text("Protocolo: 456.")])
     agent, _ = build_esc(llm)
     reply = agent.reply("Quero reclamar.")
-    assert reply == FALLBACK_NO_PROTOCOL
+    assert reply == FALLBACK_NO_PROTOCOL["pt"]
     assert "protocol" not in reply.lower()
     assert "(67) 3341-4444" in reply and "contato@emporiodamusica.com.br" in reply
     assert len(llm.requests) == 2
@@ -358,6 +358,37 @@ def test_unknown_protocol_code_after_escalation_is_guarded(build_esc: Any) -> No
     agent, _ = build_esc(llm)
     agent.reply("Quero reclamar.")
     assert agent.reply("Abre outro?") == "Pode falar com a equipe pelos contatos."
+
+
+def test_protocol_word_without_a_code_is_not_guarded(build_esc: Any) -> None:
+    content = "O protocolo de troca é simples: você tem 7 dias para pedir."
+    llm = FakeLLM([text(content)])
+    agent, recorder = build_esc(llm)
+    assert agent.reply("Como funciona a troca?") == content
+    assert len(llm.requests) == 1
+    assert "protocol_guard" not in [e.kind for e in recorder.events]
+
+
+def test_em_code_not_returned_by_the_tool_is_guarded(build_esc: Any) -> None:
+    llm = FakeLLM([text("Registrei: EM-20261101-0042."), text("Fale com a equipe.")])
+    agent, _ = build_esc(llm)
+    assert agent.reply("Quero reclamar.") == "Fale com a equipe."
+
+
+def test_error_messages_follow_the_customer_language(build: Any) -> None:
+    agent, _ = build(FakeLLM([LLMError("provider timed out")]))
+    assert agent.reply("Hi! Where is my order? Can you check it for me?") == FALLBACK_ERROR["en"]
+    agent, _ = build(FakeLLM([LLMError("provider timed out")]))
+    assert agent.reply("Oi, onde está o meu pedido?") == FALLBACK_ERROR["pt"]
+    agent, _ = build(FakeLLM([QuotaExceededError("quota", 650.0)]))
+    reply = agent.reply("Hi! Where is my order? Can you check it for me?")
+    assert reply == "The free provider reached its usage limit. Please try again in 11 minutes."
+
+
+def test_every_error_message_has_portuguese_and_english() -> None:
+    for messages in (FALLBACK_ERROR, FALLBACK_LIMIT, FALLBACK_NO_PROTOCOL):
+        assert set(messages) == {"pt", "en"}
+        assert messages["pt"] != messages["en"]
 
 
 def test_reply_without_protocol_is_untouched(build_esc: Any) -> None:

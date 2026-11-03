@@ -65,3 +65,7 @@ def test_template_asks_contact_before_escalating_without_a_verified_order() -> N
     flat = " ".join(TEMPLATE.split())
     assert "Without a verified order, ask for the customer's name and e-mail or phone" in flat
     assert "never say that anything was registered" in flat
+
+
+def test_template_limits_the_drum_kit_quote_to_other_cities() -> None:
+    assert "special freight quotes (acoustic drum kits outside Campo Grande)" in TEMPLATE

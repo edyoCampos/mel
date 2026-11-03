@@ -84,10 +84,13 @@ def test_available_product_has_no_alternatives(details: Any) -> None:
     assert details({"product_id": 95}).payload["alternatives"] == []
 
 
-def test_drum_kit_requires_special_quote(details: Any) -> None:
+def test_drum_kit_special_quote_only_for_other_cities(details: Any) -> None:
+    """Policy 5.2 asks for a quote outside Campo Grande; in the city policy 5.1 applies."""
     delivery = details({"query": "bateria pearl"}).payload["delivery"]
     assert delivery["requires_special_quote"] is True
-    assert "cotação especial" in delivery["campo_grande_fee"]
+    assert "cotação especial" in delivery["other_cities"]
+    assert delivery["campo_grande_fee"] == "Grátis"  # above R$ 500,00
+    assert delivery["campo_grande_time"] == "1 a 3 dias úteis"
 
 
 def test_electric_bass_has_normal_delivery(details: Any) -> None:
