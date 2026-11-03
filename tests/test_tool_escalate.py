@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from emporio.services import STORE_TZ
-from emporio.tools import EscalateToHumanTool, ToolContext, ToolRegistry
+from emporio.tools import EscalateToHumanTool, GetOrderStatusTool, ToolContext, ToolRegistry
 
 SATURDAY_AFTERNOON = datetime(2026, 11, 7, 15, 0, tzinfo=STORE_TZ)
 TUESDAY_MORNING = datetime(2026, 11, 3, 10, 0, tzinfo=STORE_TZ)
@@ -23,7 +23,18 @@ def log_lines(context: ToolContext) -> list[dict[str, Any]]:
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()]
 
 
-COMPLAINT = {"reason": "complaint", "summary": "Violão chegou com o tampo rachado."}
+CONTACT = "João Pereira, joao.pereira@example.com"
+COMPLAINT = {
+    "reason": "complaint",
+    "summary": "Violão chegou com o tampo rachado.",
+    "customer_contact": CONTACT,
+}
+BARE_COMPLAINT = {"reason": "complaint", "summary": "Violão chegou com o tampo rachado."}
+
+
+def verify_order_8(context: ToolContext) -> None:
+    args = {"order_id": 8, "email": "anacarol.ferreira@coldmail.com"}
+    assert ToolRegistry([GetOrderStatusTool(context)]).dispatch("get_order_status", args).ok
 
 
 def test_creates_protocol_with_date_and_sequence(make_context: Callable[..., ToolContext]) -> None:
@@ -41,17 +52,26 @@ def test_sequence_restarts_each_day(make_context: Callable[..., ToolContext]) ->
 
 def test_appends_one_json_line_per_call(make_context: Callable[..., ToolContext]) -> None:
     context = make_context(SUNDAY)
+    verify_order_8(context)
     for _ in range(3):
-        escalate(context, {**COMPLAINT, "order_id": 8})
+        escalate(context, {**BARE_COMPLAINT, "order_id": 8})
     lines = log_lines(context)
     assert len(lines) == 3
-    assert set(lines[0]) == {"protocol", "created_at", "reason", "summary", "order_id"}
+    assert set(lines[0]) == {
+        "protocol",
+        "created_at",
+        "reason",
+        "summary",
+        "order_id",
+        "customer_contact",
+    }
     assert lines[0]["order_id"] == 8
 
 
 def test_summary_contacts_are_masked_in_log(make_context: Callable[..., ToolContext]) -> None:
     context = make_context(SUNDAY)
     summary = "Cliente anacarol.ferreira@coldmail.com, telefone (67) 99654-7821, pedido atrasado."
+    verify_order_8(context)
     escalate(context, {"reason": "delayed_order", "summary": summary, "order_id": 8})
     logged = log_lines(context)[0]["summary"]
     assert "a***@coldmail.com" in logged
@@ -90,6 +110,54 @@ def test_invalid_reason_rejected(make_context: Callable[..., ToolContext]) -> No
 
 def test_data_privacy_reason_accepted(make_context: Callable[..., ToolContext]) -> None:
     result = escalate(
-        make_context(), {"reason": "data_privacy_request", "summary": "Quer excluir os dados."}
+        make_context(),
+        {
+            "reason": "data_privacy_request",
+            "summary": "Quer excluir os dados.",
+            "customer_contact": CONTACT,
+        },
     )
     assert result.ok and result.payload["protocol"].startswith("EM-")
+
+
+# ---------- The escalation identifies the customer ----------
+
+
+def test_without_order_or_contact_returns_error_and_no_protocol(
+    make_context: Callable[..., ToolContext],
+) -> None:
+    context = make_context(SUNDAY)
+    result = escalate(context, BARE_COMPLAINT)
+    assert not result.ok
+    assert result.payload["error"] == "contact_required"
+    assert "protocol" not in result.payload
+    assert not context.escalation_log.exists()
+
+
+def test_unverified_order_without_contact_returns_error(
+    make_context: Callable[..., ToolContext],
+) -> None:
+    result = escalate(make_context(SUNDAY), {**BARE_COMPLAINT, "order_id": 8})
+    assert result.payload["error"] == "contact_required"
+
+
+def test_contact_is_written_to_the_log(make_context: Callable[..., ToolContext]) -> None:
+    context = make_context(SUNDAY)
+    assert escalate(context, COMPLAINT).payload["protocol"] == "EM-20261101-0001"
+    assert log_lines(context)[0]["customer_contact"] == CONTACT
+
+
+def test_verified_order_works_without_contact(make_context: Callable[..., ToolContext]) -> None:
+    context = make_context(SUNDAY)
+    verify_order_8(context)
+    result = escalate(context, {**BARE_COMPLAINT, "order_id": 8})
+    assert result.ok and result.payload["protocol"] == "EM-20261101-0001"
+    assert log_lines(context)[0]["customer_contact"] is None
+
+
+def test_corrupted_log_line_is_ignored(make_context: Callable[..., ToolContext]) -> None:
+    context = make_context(SUNDAY)
+    escalate(context, COMPLAINT)
+    with context.escalation_log.open("a", encoding="utf-8") as handle:
+        handle.write("{not json\n")
+    assert escalate(context, COMPLAINT).payload["protocol"] == "EM-20261101-0002"

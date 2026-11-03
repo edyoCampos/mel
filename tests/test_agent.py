@@ -211,6 +211,15 @@ def test_provider_quota_of_under_a_minute_says_one_minute(build: Any) -> None:
     assert agent.reply("oi").endswith("Tente de novo em 1 minuto.")
 
 
+def test_trace_masks_the_customer_contact_of_an_escalation(build_esc: Any) -> None:
+    llm = FakeLLM([tool_calls(call("escalate_to_human", ESCALATE)), text("Protocolo aberto.")])
+    agent, recorder = build_esc(llm)
+    agent.reply("Meu violão chegou rachado. Sou o João, joao.pereira@example.com")
+    event = next(e for e in recorder.events if e.kind == "tool_call")
+    assert event.arguments is not None
+    assert event.arguments["customer_contact"] == "João Pereira, j***@example.com"
+
+
 def test_limit_event_lists_the_refused_calls(build: Any) -> None:
     script = [tool_calls(call("ping", "{}", f"c{i}")) for i in range(6)]
     refused = tool_calls(call("ping", "{}", "r1"), call("get_order_status", ORDER_ARGS, "r2"))
@@ -279,7 +288,10 @@ def build_esc(make_context: Callable[..., ToolContext]) -> Callable[..., tuple[A
     return make
 
 
-ESCALATE = '{"reason": "complaint", "summary": "Violão chegou com o tampo rachado."}'
+ESCALATE = (
+    '{"reason": "complaint", "summary": "Violão chegou com o tampo rachado.", '
+    '"customer_contact": "João Pereira, joao.pereira@example.com"}'
+)
 
 
 def test_invented_protocol_triggers_one_retry_that_escalates(build_esc: Any) -> None:

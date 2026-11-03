@@ -59,3 +59,9 @@ def test_template_presents_alternatives_without_asking_first() -> None:
         "When the product is unavailable, present the alternatives the tool returned, "
         "without asking first." in " ".join(TEMPLATE.split())
     )
+
+
+def test_template_asks_contact_before_escalating_without_a_verified_order() -> None:
+    flat = " ".join(TEMPLATE.split())
+    assert "Without a verified order, ask for the customer's name and e-mail or phone" in flat
+    assert "never say that anything was registered" in flat
