@@ -46,6 +46,8 @@ class Scenario:
     must_include: list[str] = field(default_factory=list)
     must_not_include: list[str] = field(default_factory=list)
     first_reply_must_not_include: list[str] = field(default_factory=list)
+    # (count, texts): at least `count` of these texts must appear
+    must_include_at_least: tuple[int, list[str]] | None = None
     export_as: str | None = None
     tag: str | None = None
 
@@ -64,9 +66,16 @@ class Scenario:
             must_include=list(data.get("must_include") or []),
             must_not_include=list(data.get("must_not_include") or []),
             first_reply_must_not_include=list(data.get("first_reply_must_not_include") or []),
+            must_include_at_least=_at_least(data.get("must_include_at_least")),
             export_as=data.get("export_as"),
             tag=data.get("tag"),
         )
+
+
+def _at_least(raw: dict[str, Any] | None) -> tuple[int, list[str]] | None:
+    if not raw:
+        return None
+    return int(raw["count"]), list(raw["of"])
 
 
 @dataclass
@@ -116,6 +125,11 @@ def check(scenario: Scenario, replies: str, tools: list[str], first_reply: str =
     for needle in scenario.must_not_include:
         if needle.lower() in lowered:
             failures.append(f"must not include: {needle!r}")
+    if scenario.must_include_at_least is not None:
+        count, texts = scenario.must_include_at_least
+        found = sum(text.lower() in lowered for text in texts)
+        if found < count:
+            failures.append(f"must include at least {count} of {texts}, found {found}")
     for needle in scenario.first_reply_must_not_include:
         if needle.lower() in first_reply.lower():
             failures.append(f"first reply must not include: {needle!r}")

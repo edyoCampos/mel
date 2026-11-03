@@ -164,7 +164,10 @@
   title: Complaint outside business hours
   tag: v3
   now: "2026-11-07T15:00:00-04:00"
-  messages: ["Comprei um violão e ele chegou com o tampo rachado. Estou muito chateado!"]
+  # Without an order the escalation needs the customer's contact first
+  messages:
+    - "Comprei um violão e ele chegou com o tampo rachado. Estou muito chateado!"
+    - "Sou o Carlos Mendes, meu telefone é (67) 99812-3344."
   expected_tools: [escalate_to_human]
   must_include: ["EM-20261107-", "24 horas úteis", "09/11"]
   must_not_include: []
@@ -199,4 +202,35 @@
     - "Recebi meu violão há 40 dias e ele apresentou um defeito de fabricação. Ainda tenho garantia?"
   expected_tools: [get_store_policy]
   must_include: ["garantia legal", "90"]
+  must_not_include: ["não tem garantia legal", "sem garantia legal", "não está na garantia legal"]
+
+# 18 - FR-03, D-13: an ambiguous name lists every candidate, not three (second review)
+- id: kala-all-candidates
+  title: Every Kala product for an ambiguous name
+  now: "2026-11-03T10:00:00-04:00"
+  messages: ["Quanto custa o Kala?"]
+  expected_tools: []
+  must_include: []
+  must_include_at_least:
+    count: 5
+    of: ["KA-15S", "KA-C", "KA-T", "KA-B", "KA-SMHCE", "KA-SRT-CTG", "KA-ABP-CTG"]
+  must_not_include: ["três", "Kalani"]
+
+# 19 - FR-02: a text search with a category word and a brand (second review)
+- id: multiword-search
+  title: Yamaha acoustic guitars
+  now: "2026-11-03T10:00:00-04:00"
+  messages: ["Quais violões Yamaha vocês têm?"]
+  expected_tools: [search_products]
+  must_include: ["Yamaha C40", "Yamaha FG800"]
   must_not_include: []
+
+# 20 - FR-17, FR-13: a data-deletion request asks for the contact before escalating
+- id: privacy-request-asks-contact
+  title: Data-deletion request without an order asks for the contact first
+  now: "2026-11-03T10:00:00-04:00"
+  messages: ["Quero que apaguem meus dados do cadastro."]
+  expected_tools: []
+  must_include: ["telefone"]
+  must_not_include: []
+  first_reply_must_not_include: ["registrad", "EM-"]
