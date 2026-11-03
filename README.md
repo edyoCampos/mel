@@ -58,7 +58,9 @@ Vocês têm cordas de guitarra?
 Hi! Where is my order 8? My email is anacarol.ferreira@coldmail.com
 ```
 
-The fifth line answers Mel's request for the order data after the fourth. To switch provider,
+The fifth line answers Mel's request for the order data after the fourth. Order 7 was delivered in
+February 2026, so today Mel will say the 7-day window has closed; to see it open, as in
+`examples/03`, start the chat with `--now 2026-02-20T10:00`. To switch provider,
 change `LLM_BASE_URL`, `LLM_MODEL` and `LLM_API_KEY` in `.env` (see
 [Choosing the model provider](#choosing-the-model-provider)); Groq's free plan limits tokens per
 minute and per day.
