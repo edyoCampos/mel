@@ -174,6 +174,25 @@ def test_failure_transcript_lists_the_tool_call_limit(run: Any, tmp_path: Path) 
     assert 'refused: get_product_details {"query": "gd20"}' in content
 
 
+def test_each_run_starts_a_new_escalation_log(run: Any) -> None:
+    args = (
+        '{"reason": "complaint", "summary": "Tampo rachado.", "customer_contact": "Ana, ana@x.com"}'
+    )
+    item = scenario(
+        id="complaint",
+        messages=["Meu violão chegou rachado."],
+        expected_tools=["escalate_to_human"],
+        must_include=["EM-20261101-0001"],
+        must_not_include=[],
+    )
+    for _ in range(2):
+        llm = FakeLLM([tool_calls(call("escalate_to_human", args)), text("EM-20261101-0001")])
+        result = run(item, llm)
+        assert result.passed, result.failures
+        protocol = '"protocol": "EM-20261101-0001"'
+        assert any(protocol in (m.content or "") for m in result.history if m.role == "tool")
+
+
 def test_failure_transcripts_are_not_versioned() -> None:
     ignored = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
     assert runner.FAILURES_DIR.relative_to(ROOT).as_posix() + "/" in ignored
