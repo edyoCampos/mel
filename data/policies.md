@@ -27,6 +27,8 @@ Democratizar o acesso a instrumentos musicais de qualidade na região Centro-Oes
 | E-mail | contato@emporiodamusica.com.br |
 | Fundação | 2008 |
 
+<!-- Reviewer note (A-02): the manual writes this e-mail with an accent on the "o" of "emporio" in this table; the cover has it without the accent, which is the version used here. -->
+
 ## 2. Horário de Funcionamento
 
 O atendimento presencial na loja segue os horários abaixo. O atendimento via WhatsApp segue o mesmo horário, com respostas automáticas fora do expediente.
