@@ -37,6 +37,16 @@ adapter, changing only environment variables.
 | 16 | `kala-not-kalani` | Tue 03/11/2026 10:00 | none | "Quero um ukulele Kala" lists Kala ukuleles (KA-15S, KA-C) and never the Kalani brand | |
 | 17 | `defect-legal-warranty` | Tue 03/11/2026 10:00 | `get_store_policy` | A defect 40 days after receipt is covered by the 90-day legal warranty | |
 
+## Changes to the checks made during the reviews
+
+- `complaint-out-of-hours` got a second customer message with a name and a phone: an escalation
+  without a verified order now needs the customer's contact, so the scenario checks the same
+  outcome (protocol, response time, next opening) after the contact is asked for, and a protocol
+  invented before the contact would fail it.
+- `must_include_at_least` (used by `kala-all-candidates`) requires at least 5 of the 7 Kala
+  names: a plain list of required names would demand one exact choice of products, while a single
+  name would let an answer with three products pass, which is the bug the scenario covers.
+
 ## Results
 
 **Final full run on DeepSeek `deepseek-flash`, 02/11/2026, final code: 17/17.**
